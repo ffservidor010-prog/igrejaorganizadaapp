@@ -248,7 +248,7 @@ function Aniversariantes() {
   const [list, setList] = useStored<Aniv[]>("io_aniv", []);
   const [novo, setNovo] = useState<Aniv | null>(null);
   const now = new Date(), mes = now.getMonth() + 1, dia = now.getDate();
-  const md = (d: string) => { const [, m, dd] = d.split("-").map(Number); return { m, dd }; };
+  const md = (d: string) => { const p = d.split("-").map(Number); return { m: p[1] ?? 0, dd: p[2] ?? 0 }; };
   const doMes = list.filter((a) => md(a.data).m === mes).sort((a, b) => md(a.data).dd - md(b.data).dd);
   const hoje = doMes.filter((a) => md(a.data).dd === dia);
   const nomeMes = now.toLocaleDateString("pt-BR", { month: "long" });
