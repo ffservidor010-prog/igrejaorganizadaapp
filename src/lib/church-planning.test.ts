@@ -38,3 +38,14 @@ describe("Escalas mensais", () => {
     expect(localDateKey(new Date(2026, 9, 28))).toBe("2026-10-28");
   });
 });
+import { entriesInMonth, sumValues, totalsByPerson } from "./church-planning";
+describe("dízimos e ofertas", () => {
+  const list = [
+    { id: "1", nome: "Ana", valor: 100, data: "2026-10-05" },
+    { id: "2", nome: "ana ", valor: 50.5, data: "2026-10-20" },
+    { id: "3", nome: "Bruno", valor: 30, data: "2026-11-01" },
+  ];
+  it("separa por mês", () => expect(entriesInMonth(list, 2026, 10).map((e) => e.id)).toEqual(["1", "2"]));
+  it("soma o total do mês", () => expect(sumValues(entriesInMonth(list, 2026, 10))).toBe(150.5));
+  it("soma por dizimista", () => expect(totalsByPerson(entriesInMonth(list, 2026, 10))[0].total).toBe(150.5));
+});

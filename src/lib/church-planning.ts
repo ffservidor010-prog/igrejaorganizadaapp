@@ -34,3 +34,26 @@ export function assignSchedule(list: Schedule, date: string, service: string, te
 export function servicesOnDate(date: Date) {
   return ({ 2: ["ter"], 3: ["qua"], 5: ["sex"], 0: ["dom1", "dom2"] } as Record<number, string[]>)[date.getDay()] ?? [];
 }
+export type Entrada = { id: string; nome?: string; valor: number; data: string; obs?: string };
+
+export function entriesInMonth<T extends Entrada>(list: T[], year: number, month: number) {
+  const prefix = `${year}-${String(month).padStart(2, "0")}`;
+  return list.filter((e) => e.data.startsWith(prefix)).sort((a, b) => a.data.localeCompare(b.data));
+}
+
+export function sumValues(list: { valor: number }[]) {
+  return Math.round(list.reduce((s, e) => s + (Number(e.valor) || 0), 0) * 100) / 100;
+}
+
+export function totalsByPerson(list: Entrada[]) {
+  const map = new Map<string, { nome: string; total: number; itens: Entrada[] }>();
+  for (const e of list) {
+    const nome = (e.nome ?? "").trim();
+    const key = nome.toLocaleLowerCase("pt-BR");
+    const cur = map.get(key) ?? { nome, total: 0, itens: [] };
+    cur.itens.push(e);
+    cur.total = sumValues(cur.itens);
+    map.set(key, cur);
+  }
+  return [...map.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
