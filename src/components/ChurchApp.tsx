@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  Home, Users, UserCog, CalendarDays, Cake, Megaphone, PartyPopper, LogOut, Plus, Pencil, Trash2, Phone, Save, MessageCircle, MapPin, Clock, X, Search, ChevronLeft, ChevronRight, Copy,
+  Home, Users, UserCog, CalendarDays, Cake, Megaphone, PartyPopper, LogOut, Plus, Pencil, Trash2, Phone, Save, MessageCircle, MapPin, Clock, X, Search, ChevronLeft, ChevronRight, Copy, HandCoins, Gift,
 } from "lucide-react";
 import icon from "@/assets/church-icon.png";
 import { Calendar } from "@/components/ui/calendar";
 import { ptBR } from "date-fns/locale";
+import { entriesInMonth, sumValues, totalsByPerson, type Entrada } from "@/lib/church-planning";
 import { assignSchedule, birthdaysFromPeople, birthdaysInMonth, localDateKey, servicesOnDate } from "@/lib/church-planning";
 
 /* ---------- storage ---------- */
@@ -484,6 +485,71 @@ function Eventos() {
   );
 }
 
+const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+function useMes() {
+  const now = new Date();
+  const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() + 1 });
+  const move = (d: number) => setYm(({ y, m }) => { const n = m + d; return n < 1 ? { y: y - 1, m: 12 } : n > 12 ? { y: y + 1, m: 1 } : { y, m: n }; });
+  const bar = (
+    <div className="mb-4 flex items-center justify-between rounded-xl bg-secondary p-2">
+      <button onClick={() => move(-1)} aria-label="Mês anterior" className="rounded-lg p-2"><ChevronLeft className="h-5 w-5" /></button>
+      <p className="font-bold text-secondary-foreground">{MESES[ym.m - 1]} {ym.y}</p>
+      <button onClick={() => move(1)} aria-label="Próximo mês" className="rounded-lg p-2"><ChevronRight className="h-5 w-5" /></button>
+    </div>
+  );
+  return { ...ym, bar };
+}
+
+function Financeiro({ tipo, membros }: { tipo: "dizimo" | "oferta"; membros: Membro[] }) {
+  const dz = tipo === "dizimo";
+  const [list, setList] = useStored<Entrada[]>(dz ? "io_dizimos" : "io_ofertas", []);
+  const { y, m, bar } = useMes();
+  const [novo, setNovo] = useState<Entrada | null>(null);
+  const doMes = entriesInMonth(list, y, m);
+  const total = sumValues(doMes);
+  const del = (e: Entrada) => confirm("Excluir este lançamento?") && setList(list.filter((x) => x.id !== e.id));
+  const linha = (e: Entrada) => (
+    <div key={e.id} className="flex items-center justify-between gap-2 border-t py-2 text-sm first:border-t-0">
+      <span className="text-muted-foreground">{fmtData(e.data)}{e.obs ? ` · ${e.obs}` : ""}</span>
+      <span className="flex items-center gap-2 font-semibold">{brl(e.valor)}<button onClick={() => del(e)} aria-label="Excluir" className="text-destructive"><Trash2 className="h-4 w-4" /></button></span>
+    </div>
+  );
+  return (
+    <div>
+      <Header title={dz ? "Dizimistas" : "Ofertas"} action={<Btn onClick={() => setNovo({ id: uid(), nome: "", valor: 0, data: localDateKey(new Date()), obs: "" })}><Plus className="h-4 w-4" />Lançar</Btn>} />
+      {bar}
+      <Card className="mb-4 bg-hero text-primary-foreground">
+        <p className="text-sm opacity-80">Total de {MESES[m - 1]}</p>
+        <p className="text-3xl font-bold">{brl(total)}</p>
+        <p className="text-xs opacity-80">{dz ? `${totalsByPerson(doMes).length} dizimista(s)` : `${doMes.length} oferta(s)`}</p>
+      </Card>
+      <div className="space-y-3">
+        {doMes.length === 0 && <Empty text="Nenhum lançamento neste mês." />}
+        {dz ? totalsByPerson(doMes).map((p) => (
+          <Card key={p.nome}>
+            <div className="mb-1 flex justify-between font-bold"><span>{p.nome}</span><span className="text-primary">{brl(p.total)}</span></div>
+            {p.itens.map(linha)}
+          </Card>
+        )) : doMes.length > 0 && <Card>{doMes.map(linha)}</Card>}
+      </div>
+      {novo && (
+        <Modal title={dz ? "Lançar dízimo" : "Lançar oferta"} onClose={() => setNovo(null)}>
+          <div className="space-y-3">
+            {dz && <Field label="Dizimista"><input list="lista-membros" className={inputCls} value={novo.nome} onChange={(e) => setNovo({ ...novo, nome: e.target.value })} /><datalist id="lista-membros">{membros.map((x) => <option key={x.id} value={x.nome} />)}</datalist></Field>}
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Valor (R$)"><input type="number" inputMode="decimal" min="0" step="0.01" className={inputCls} value={novo.valor || ""} onChange={(e) => setNovo({ ...novo, valor: Number(e.target.value) })} /></Field>
+              <Field label="Data"><input type="date" className={inputCls} value={novo.data} onChange={(e) => setNovo({ ...novo, data: e.target.value })} /></Field>
+            </div>
+            <Field label={dz ? "Observação" : "Culto / Observação"}><input className={inputCls} value={novo.obs} onChange={(e) => setNovo({ ...novo, obs: e.target.value })} /></Field>
+            <Btn className="w-full" disabled={!novo.valor || !novo.data || (dz && !novo.nome?.trim())} onClick={() => { setList([...list, { ...novo, nome: (novo.nome ?? "").trim() }]); setNovo(null); }}><Save className="h-4 w-4" />Salvar</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 /* ---------- shell ---------- */
 const TABS = [
   { id: "inicio", label: "Início", icon: Home },
@@ -491,6 +557,8 @@ const TABS = [
   { id: "obreiros", label: "Obreiros", icon: UserCog },
   { id: "escalas", label: "Escalas", icon: CalendarDays },
   { id: "aniv", label: "Aniver.", icon: Cake },
+  { id: "dizimos", label: "Dízimos", icon: HandCoins },
+  { id: "ofertas", label: "Ofertas", icon: Gift },
   { id: "avisos", label: "Avisos", icon: Megaphone },
   { id: "eventos", label: "Eventos", icon: PartyPopper },
   { id: "sair", label: "Sair", icon: LogOut },
@@ -519,6 +587,8 @@ export function ChurchApp() {
         {tab === "obreiros" && <Obreiros list={obreiros} setList={setObreiros} />}
         {tab === "escalas" && <Escalas obreiros={obreiros} />}
         {tab === "aniv" && <Aniversariantes membros={membros} obreiros={obreiros} />}
+        {tab === "dizimos" && <Financeiro key="d" tipo="dizimo" membros={membros} />}
+        {tab === "ofertas" && <Financeiro key="o" tipo="oferta" membros={membros} />}
         {tab === "avisos" && <Avisos />}
         {tab === "eventos" && <Eventos />}
         {tab === "sair" && (
@@ -530,9 +600,9 @@ export function ChurchApp() {
         )}
       </main>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-card pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto grid max-w-lg grid-cols-8">
+        <div className="mx-auto flex max-w-lg overflow-x-auto">
           {TABS.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)} className={`flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold ${tab === t.id ? "text-primary" : "text-muted-foreground"}`}>
+            <button key={t.id} onClick={() => setTab(t.id)} className={`flex min-w-[64px] flex-1 shrink-0 flex-col items-center gap-0.5 py-2 text-[10px] font-semibold ${tab === t.id ? "text-primary" : "text-muted-foreground"}`}>
               <t.icon className="h-5 w-5" />{t.label}
             </button>
           ))}
