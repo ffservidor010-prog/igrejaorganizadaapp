@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  Home, Users, CalendarDays, Cake, Megaphone, PartyPopper, LogOut, Plus, Pencil, Trash2, Phone, Save, MessageCircle, MapPin, Clock, X,
+  Home, Users, UserCog, CalendarDays, Cake, Megaphone, PartyPopper, LogOut, Plus, Pencil, Trash2, Phone, Save, MessageCircle, MapPin, Clock, X, Search,
 } from "lucide-react";
 import icon from "@/assets/church-icon.png";
 
@@ -19,6 +19,7 @@ type Obreiro = { id: string; nome: string; cargo: string; telefone: string; foto
 type Aniv = { id: string; nome: string; data: string; telefone: string };
 type Aviso = { id: string; texto: string; data: string };
 type Evento = { id: string; nome: string; tipo: string; data: string; hora: string; local: string };
+type Membro = { id: string; nome: string; telefone: string; nascimento: string; endereco: string; status: "Ativo" | "Inativo"; obs: string; foto?: string };
 type Escala = Record<string, Record<string, string>>;
 
 const CULTOS = [
@@ -213,6 +214,89 @@ function Obreiros({ list, setList }: { list: Obreiro[]; setList: (l: Obreiro[]) 
   );
 }
 
+function Membros({ list, setList }: { list: Membro[]; setList: (l: Membro[]) => void }) {
+  const [busca, setBusca] = useState("");
+  const [filtro, setFiltro] = useState<"todos" | "Ativo" | "Inativo">("todos");
+  const [edit, setEdit] = useState<Membro | null>(null);
+  const q = busca.trim().toLowerCase();
+  const visiveis = list
+    .filter((m) => filtro === "todos" || m.status === filtro)
+    .filter((m) => !q || m.nome.toLowerCase().includes(q) || m.telefone.includes(q))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const ativos = list.filter((m) => m.status === "Ativo").length;
+  const salvar = () => {
+    if (!edit?.nome.trim()) return;
+    const m: Membro = { ...edit, nome: edit.nome.trim() };
+    setList(list.some((x) => x.id === m.id) ? list.map((x) => (x.id === m.id ? m : x)) : [...list, m]);
+    setEdit(null);
+  };
+  return (
+    <div>
+      <Header title="Membros" action={<Btn onClick={() => setEdit({ id: uid(), nome: "", telefone: "", nascimento: "", endereco: "", status: "Ativo", obs: "" })}><Plus className="h-4 w-4" />Novo</Btn>} />
+      <div className="mb-4 space-y-3">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input className={`${inputCls} pl-9`} placeholder="Buscar por nome ou telefone..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+        </div>
+        <div className="flex gap-2">
+          {(["todos", "Ativo", "Inativo"] as const).map((f) => (
+            <button key={f} onClick={() => setFiltro(f)} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${filtro === f ? "bg-hero text-primary-foreground shadow-soft" : "bg-secondary text-secondary-foreground"}`}>
+              {f === "todos" ? "Todos" : f === "Ativo" ? "Ativos" : "Inativos"}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs font-semibold text-muted-foreground">{list.length} membro(s) · {ativos} ativo(s)</p>
+      </div>
+      <div className="space-y-3">
+        {visiveis.length === 0 && <Empty text={list.length === 0 ? "Nenhum membro cadastrado." : "Nenhum membro encontrado."} />}
+        {visiveis.map((m) => (
+          <Card key={m.id} className="flex items-center gap-3">
+            {m.foto ? <img src={m.foto} alt={m.nome} className="h-14 w-14 rounded-full object-cover" />
+              : <div className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-lg font-bold text-secondary-foreground">{m.nome[0]}</div>}
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-bold">{m.nome}</p>
+              {m.telefone ? <a href={`tel:${m.telefone}`} className="flex items-center gap-1 text-xs text-primary"><Phone className="h-3 w-3" />{m.telefone}</a>
+                : <p className="text-xs text-muted-foreground">Sem telefone</p>}
+              <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                {m.nascimento && <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Cake className="h-3 w-3" />{fmtData(m.nascimento)}</span>}
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${m.status === "Ativo" ? "bg-success/15 text-success" : "bg-secondary text-muted-foreground"}`}>{m.status}</span>
+              </p>
+            </div>
+            {m.telefone && <a href={`https://wa.me/55${m.telefone.replace(/\D/g, "")}?text=${encodeURIComponent(`Olá, ${m.nome}!`)}`} target="_blank" rel="noreferrer" aria-label={`WhatsApp de ${m.nome}`} className="rounded-lg bg-success/10 p-2 text-success"><MessageCircle className="h-4 w-4" /></a>}
+            <button onClick={() => setEdit(m)} aria-label="Editar" className="rounded-lg bg-secondary p-2 text-secondary-foreground"><Pencil className="h-4 w-4" /></button>
+            <button onClick={() => confirm(`Excluir ${m.nome}?`) && setList(list.filter((x) => x.id !== m.id))} aria-label="Excluir" className="rounded-lg bg-destructive/10 p-2 text-destructive"><Trash2 className="h-4 w-4" /></button>
+          </Card>
+        ))}
+      </div>
+      {edit && (
+        <Modal title={list.some((m) => m.id === edit.id) ? "Editar membro" : "Novo membro"} onClose={() => setEdit(null)}>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              {edit.foto ? <img src={edit.foto} alt="" className="h-16 w-16 rounded-full object-cover" /> : <div className="h-16 w-16 rounded-full bg-secondary" />}
+              <label className="cursor-pointer text-sm font-semibold text-primary">Escolher foto
+                <input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setEdit({ ...edit, foto: await resizeImage(f) }); }} />
+              </label>
+            </div>
+            <Field label="Nome"><input className={inputCls} value={edit.nome} onChange={(e) => setEdit({ ...edit, nome: e.target.value })} /></Field>
+            <Field label="Telefone"><input type="tel" className={inputCls} value={edit.telefone} onChange={(e) => setEdit({ ...edit, telefone: e.target.value })} placeholder="(96) 9..." /></Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Nascimento"><input type="date" className={inputCls} value={edit.nascimento} onChange={(e) => setEdit({ ...edit, nascimento: e.target.value })} /></Field>
+              <Field label="Situação">
+                <select className={inputCls} value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value as Membro["status"] })}>
+                  <option>Ativo</option><option>Inativo</option>
+                </select>
+              </Field>
+            </div>
+            <Field label="Endereço"><input className={inputCls} value={edit.endereco} onChange={(e) => setEdit({ ...edit, endereco: e.target.value })} placeholder="Rua, nº, bairro" /></Field>
+            <Field label="Observação"><textarea className={`${inputCls} min-h-20`} value={edit.obs} onChange={(e) => setEdit({ ...edit, obs: e.target.value })} placeholder="Ministério, anotações..." /></Field>
+            <Btn className="w-full" disabled={!edit.nome.trim()} onClick={salvar}><Save className="h-4 w-4" />Salvar</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function Escalas({ obreiros }: { obreiros: Obreiro[] }) {
   const [saved, setSaved] = useStored<Escala>("io_escala", {});
   const [draft, setDraft] = useState<Escala>(saved);
@@ -372,7 +456,8 @@ function Eventos() {
 /* ---------- shell ---------- */
 const TABS = [
   { id: "inicio", label: "Início", icon: Home },
-  { id: "obreiros", label: "Obreiros", icon: Users },
+  { id: "membros", label: "Membros", icon: Users },
+  { id: "obreiros", label: "Obreiros", icon: UserCog },
   { id: "escalas", label: "Escalas", icon: CalendarDays },
   { id: "aniv", label: "Aniver.", icon: Cake },
   { id: "avisos", label: "Avisos", icon: Megaphone },
@@ -383,6 +468,7 @@ const TABS = [
 export function ChurchApp() {
   const [user, setUser] = useStored<User | null>("io_session", null);
   const [obreiros, setObreiros] = useStored<Obreiro[]>("io_obreiros", []);
+  const [membros, setMembros] = useStored<Membro[]>("io_membros", []);
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("inicio");
 
   if (!user) return <Auth onLogin={(u) => { setUser(u); setTab("inicio"); }} />;
@@ -398,6 +484,7 @@ export function ChurchApp() {
       </header>
       <main className="p-4">
         {tab === "inicio" && <Inicio user={user} />}
+        {tab === "membros" && <Membros list={membros} setList={setMembros} />}
         {tab === "obreiros" && <Obreiros list={obreiros} setList={setObreiros} />}
         {tab === "escalas" && <Escalas obreiros={obreiros} />}
         {tab === "aniv" && <Aniversariantes />}
@@ -412,7 +499,7 @@ export function ChurchApp() {
         )}
       </main>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-card pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto grid max-w-lg grid-cols-7">
+        <div className="mx-auto grid max-w-lg grid-cols-8">
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)} className={`flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold ${tab === t.id ? "text-primary" : "text-muted-foreground"}`}>
               <t.icon className="h-5 w-5" />{t.label}
