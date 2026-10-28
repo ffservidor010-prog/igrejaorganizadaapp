@@ -468,6 +468,7 @@ const TABS = [
 export function ChurchApp() {
   const [user, setUser] = useStored<User | null>("io_session", null);
   const [obreiros, setObreiros] = useStored<Obreiro[]>("io_obreiros", []);
+  const [membros, setMembros] = useStored<Membro[]>("io_membros", []);
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("inicio");
 
   if (!user) return <Auth onLogin={(u) => { setUser(u); setTab("inicio"); }} />;
@@ -483,6 +484,7 @@ export function ChurchApp() {
       </header>
       <main className="p-4">
         {tab === "inicio" && <Inicio user={user} />}
+        {tab === "membros" && <Membros list={membros} setList={setMembros} />}
         {tab === "obreiros" && <Obreiros list={obreiros} setList={setObreiros} />}
         {tab === "escalas" && <Escalas obreiros={obreiros} />}
         {tab === "aniv" && <Aniversariantes />}
@@ -497,7 +499,7 @@ export function ChurchApp() {
         )}
       </main>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-card pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto grid max-w-lg grid-cols-7">
+        <div className="mx-auto grid max-w-lg grid-cols-8">
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)} className={`flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold ${tab === t.id ? "text-primary" : "text-muted-foreground"}`}>
               <t.icon className="h-5 w-5" />{t.label}
