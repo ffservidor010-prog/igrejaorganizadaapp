@@ -335,7 +335,7 @@ function Escalas({ obreiros }: { obreiros: Obreiro[] }) {
             <div className="grid gap-2">
               {EQUIPES.map((eq) => (
                 <Field key={eq} label={eq}>
-                  <select className={inputCls} value={draft[`${dateKey}:${c.id}`]?.[eq] ?? ""} onChange={(e) => change(c.id, eq, e.target.value)}>
+                  <select aria-label={eq} className={inputCls} value={draft[`${dateKey}:${c.id}`]?.[eq] ?? ""} onChange={(e) => change(c.id, eq, e.target.value)}>
                     <option value="">— escolher —</option>
                     {draft[`${dateKey}:${c.id}`]?.[eq] && !obreiros.some((o) => o.nome === draft[`${dateKey}:${c.id}`]?.[eq]) && <option>{draft[`${dateKey}:${c.id}`]?.[eq]}</option>}
                     {obreiros.map((o) => <option key={o.id} value={o.nome}>{o.nome}</option>)}
