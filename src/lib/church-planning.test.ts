@@ -26,10 +26,10 @@ describe("Escalas mensais", () => {
     list = assignSchedule(list, "2026-11-04", "qua", "Porteiros", "José");
     list = assignSchedule(list, "2026-11-01", "dom1", "Porteiros", "Ana");
     list = assignSchedule(list, "2026-11-01", "dom2", "Porteiros", "José");
-    expect(list["2026-10-28:qua"]?.Porteiros).toBe("Ana");
-    expect(list["2026-11-04:qua"]?.Porteiros).toBe("José");
-    expect(list["2026-11-01:dom1"]?.Porteiros).toBe("Ana");
-    expect(list["2026-11-01:dom2"]?.Porteiros).toBe("José");
+    expect(list["2026-10-28:qua"]?.["Porteiros"]).toBe("Ana");
+    expect(list["2026-11-04:qua"]?.["Porteiros"]).toBe("José");
+    expect(list["2026-11-01:dom1"]?.["Porteiros"]).toBe("Ana");
+    expect(list["2026-11-01:dom2"]?.["Porteiros"]).toBe("José");
   });
   it("mostra os cultos de acordo com o dia da semana e data local", () => {
     expect(servicesOnDate(new Date(2026, 9, 28))).toEqual(["qua"]);
