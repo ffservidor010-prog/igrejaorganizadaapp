@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  Home, Users, CalendarDays, Cake, Megaphone, PartyPopper, LogOut, Plus, Pencil, Trash2, Phone, Save, MessageCircle, MapPin, Clock, X,
+  Home, Users, UserCog, CalendarDays, Cake, Megaphone, PartyPopper, LogOut, Plus, Pencil, Trash2, Phone, Save, MessageCircle, MapPin, Clock, X, Search,
 } from "lucide-react";
 import icon from "@/assets/church-icon.png";
 
@@ -19,6 +19,7 @@ type Obreiro = { id: string; nome: string; cargo: string; telefone: string; foto
 type Aniv = { id: string; nome: string; data: string; telefone: string };
 type Aviso = { id: string; texto: string; data: string };
 type Evento = { id: string; nome: string; tipo: string; data: string; hora: string; local: string };
+type Membro = { id: string; nome: string; telefone: string; nascimento: string; endereco: string; status: "Ativo" | "Inativo"; obs: string; foto?: string };
 type Escala = Record<string, Record<string, string>>;
 
 const CULTOS = [
@@ -372,7 +373,8 @@ function Eventos() {
 /* ---------- shell ---------- */
 const TABS = [
   { id: "inicio", label: "Início", icon: Home },
-  { id: "obreiros", label: "Obreiros", icon: Users },
+  { id: "membros", label: "Membros", icon: Users },
+  { id: "obreiros", label: "Obreiros", icon: UserCog },
   { id: "escalas", label: "Escalas", icon: CalendarDays },
   { id: "aniv", label: "Aniver.", icon: Cake },
   { id: "avisos", label: "Avisos", icon: Megaphone },
