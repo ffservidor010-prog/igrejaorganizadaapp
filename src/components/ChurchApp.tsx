@@ -542,7 +542,7 @@ function Financeiro({ tipo, membros }: { tipo: "dizimo" | "oferta"; membros: Mem
               <Field label="Data"><input type="date" className={inputCls} value={novo.data} onChange={(e) => setNovo({ ...novo, data: e.target.value })} /></Field>
             </div>
             <Field label={dz ? "Observação" : "Culto / Observação"}><input className={inputCls} value={novo.obs} onChange={(e) => setNovo({ ...novo, obs: e.target.value })} /></Field>
-            <Btn className="w-full" disabled={!novo.valor || !novo.data || (dz && !novo.nome?.trim())} onClick={() => { setList([...list, { ...novo, nome: novo.nome?.trim() }]); setNovo(null); }}><Save className="h-4 w-4" />Salvar</Btn>
+            <Btn className="w-full" disabled={!novo.valor || !novo.data || (dz && !novo.nome?.trim())} onClick={() => { setList([...list, { ...novo, nome: (novo.nome ?? "").trim() }]); setNovo(null); }}><Save className="h-4 w-4" />Salvar</Btn>
           </div>
         </Modal>
       )}

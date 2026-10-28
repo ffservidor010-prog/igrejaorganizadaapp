@@ -47,5 +47,5 @@ describe("dízimos e ofertas", () => {
   ];
   it("separa por mês", () => expect(entriesInMonth(list, 2026, 10).map((e) => e.id)).toEqual(["1", "2"]));
   it("soma o total do mês", () => expect(sumValues(entriesInMonth(list, 2026, 10))).toBe(150.5));
-  it("soma por dizimista", () => expect(totalsByPerson(entriesInMonth(list, 2026, 10))[0].total).toBe(150.5));
+  it("soma por dizimista", () => expect(totalsByPerson(entriesInMonth(list, 2026, 10))[0]?.total).toBe(150.5));
 });
