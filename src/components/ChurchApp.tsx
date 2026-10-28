@@ -1,8 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  Home, Users, UserCog, CalendarDays, Cake, Megaphone, PartyPopper, LogOut, Plus, Pencil, Trash2, Phone, Save, MessageCircle, MapPin, Clock, X, Search,
+  Home, Users, UserCog, CalendarDays, Cake, Megaphone, PartyPopper, LogOut, Plus, Pencil, Trash2, Phone, Save, MessageCircle, MapPin, Clock, X, Search, ChevronLeft, ChevronRight, Copy,
 } from "lucide-react";
 import icon from "@/assets/church-icon.png";
+import { Calendar } from "@/components/ui/calendar";
+import { ptBR } from "date-fns/locale";
+import { assignSchedule, birthdaysFromPeople, birthdaysInMonth, localDateKey, servicesOnDate } from "@/lib/church-planning";
 
 /* ---------- storage ---------- */
 function useStored<T>(key: string, initial: T) {
@@ -15,7 +18,7 @@ function useStored<T>(key: string, initial: T) {
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 type User = { id: string; nome: string; email: string; senha: string; telefone: string; cargo: string };
-type Obreiro = { id: string; nome: string; cargo: string; telefone: string; foto?: string };
+type Obreiro = { id: string; nome: string; cargo: string; telefone: string; foto?: string; nascimento?: string };
 type Aniv = { id: string; nome: string; data: string; telefone: string };
 type Aviso = { id: string; texto: string; data: string };
 type Evento = { id: string; nome: string; tipo: string; data: string; hora: string; local: string };
@@ -177,7 +180,7 @@ function Obreiros({ list, setList }: { list: Obreiro[]; setList: (l: Obreiro[]) 
   };
   return (
     <div>
-      <Header title="Obreiros" action={<Btn onClick={() => setEdit({ id: uid(), nome: "", cargo: "Obreiro", telefone: "" })}><Plus className="h-4 w-4" />Novo</Btn>} />
+      <Header title="Obreiros" action={<Btn onClick={() => setEdit({ id: uid(), nome: "", cargo: "Obreiro", telefone: "", nascimento: "" })}><Plus className="h-4 w-4" />Novo</Btn>} />
       <div className="space-y-3">
         {list.length === 0 && <Empty text="Nenhum obreiro cadastrado." />}
         {list.map((o) => (
@@ -204,6 +207,7 @@ function Obreiros({ list, setList }: { list: Obreiro[]; setList: (l: Obreiro[]) 
               </label>
             </div>
             <Field label="Nome"><input className={inputCls} value={edit.nome} onChange={(e) => setEdit({ ...edit, nome: e.target.value })} /></Field>
+            <Field label="Nascimento"><input type="date" className={inputCls} value={edit.nascimento ?? ""} onChange={(e) => setEdit({ ...edit, nascimento: e.target.value })} /></Field>
             <Field label="Cargo"><input className={inputCls} value={edit.cargo} onChange={(e) => setEdit({ ...edit, cargo: e.target.value })} placeholder="Diácono, Presbítero..." /></Field>
             <Field label="Telefone"><input type="tel" className={inputCls} value={edit.telefone} onChange={(e) => setEdit({ ...edit, telefone: e.target.value })} /></Field>
             <Btn className="w-full" onClick={save}><Save className="h-4 w-4" />Salvar</Btn>
@@ -298,24 +302,42 @@ function Membros({ list, setList }: { list: Membro[]; setList: (l: Membro[]) => 
 }
 
 function Escalas({ obreiros }: { obreiros: Obreiro[] }) {
-  const [saved, setSaved] = useStored<Escala>("io_escala", {});
+  const [legacy] = useStored<Escala>("io_escala", {});
+  const [saved, setSaved] = useStored<Escala>("io_escalas_datas", {});
   const [draft, setDraft] = useState<Escala>(saved);
+  const [selected, setSelected] = useState(new Date());
+  const [month, setMonth] = useState(new Date());
   const [ok, setOk] = useState(false);
-  const set = (c: string, eq: string, v: string) => { setOk(false); setDraft({ ...draft, [c]: { ...draft[c], [eq]: v } }); };
+  const dateKey = localDateKey(selected);
+  const cultos = CULTOS.filter((c) => servicesOnDate(selected).includes(c.id));
+  const marked = Object.entries(draft).filter(([, teams]) => Object.values(teams).some(Boolean))
+    .map(([key]) => new Date(`${key.split(":")[0]}T12:00:00`));
+  const change = (c: string, eq: string, v: string) => {
+    setOk(false); setDraft((current) => assignSchedule(current, dateKey, c, eq, v));
+  };
   return (
     <div>
-      <Header title="Escala Semanal" action={<Btn variant={ok ? "success" : "primary"} onClick={() => { setSaved(draft); setOk(true); }}><Save className="h-4 w-4" />{ok ? "Salvo!" : "Salvar"}</Btn>} />
-      {obreiros.length === 0 && <p className="mb-3 text-sm text-muted-foreground">Dica: cadastre obreiros na aba Obreiros para escolhê-los aqui.</p>}
+      <Header title="Escalas do mês" action={<Btn variant={ok ? "success" : "primary"} onClick={() => { setSaved(draft); setOk(true); }}><Save className="h-4 w-4" />{ok ? "Salvo!" : "Salvar"}</Btn>} />
+      <Calendar mode="single" locale={ptBR} selected={selected} month={month}
+        onMonthChange={(next) => { setMonth(next); setSelected(new Date(next.getFullYear(), next.getMonth(), 1)); }}
+        onSelect={(date) => { if (date) { setSelected(date); setMonth(date); } }}
+        className="mb-4 w-full rounded-lg border bg-card [--cell-size:2.5rem]"
+        modifiers={{ escalado: marked }} modifiersClassNames={{ escalado: "border-b-2 border-success" }} />
+      <p className="mb-3 text-xs font-semibold text-success">{marked.filter((d) => d.getMonth() === month.getMonth() && d.getFullYear() === month.getFullYear()).map(localDateKey).filter((d, i, all) => all.indexOf(d) === i).length} dia(s) com escala no mês</p>
+      <h3 className="mb-3 font-bold capitalize">{selected.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</h3>
+      {cultos.length === 0 && <Empty text="Nenhum culto previsto para este dia." />}
       <div className="space-y-4">
-        {CULTOS.map((c) => (
-          <Card key={c.id}>
-            <p className="font-bold">{c.dia} · {c.hora}</p>
-            <p className="mb-3 text-sm text-primary">{c.nome}</p>
+        {cultos.map((c) => (
+          <Card key={`${dateKey}:${c.id}`}>
+            <p className="font-bold">{c.nome}</p>
+            <p className="mb-3 text-sm text-primary">{c.hora}</p>
+            {Object.values(legacy[c.id] ?? {}).some(Boolean) && <Btn variant="ghost" className="mb-3" onClick={() => { setOk(false); setDraft((current) => ({ ...current, [`${dateKey}:${c.id}`]: { ...legacy[c.id] } })); }}><Copy className="h-4 w-4" />Copiar escala antiga</Btn>}
             <div className="grid gap-2">
               {EQUIPES.map((eq) => (
                 <Field key={eq} label={eq}>
-                  <select className={inputCls} value={draft[c.id]?.[eq] ?? ""} onChange={(e) => set(c.id, eq, e.target.value)}>
+                  <select className={inputCls} value={draft[`${dateKey}:${c.id}`]?.[eq] ?? ""} onChange={(e) => change(c.id, eq, e.target.value)}>
                     <option value="">— escolher —</option>
+                    {draft[`${dateKey}:${c.id}`]?.[eq] && !obreiros.some((o) => o.nome === draft[`${dateKey}:${c.id}`]?.[eq]) && <option>{draft[`${dateKey}:${c.id}`]?.[eq]}</option>}
                     {obreiros.map((o) => <option key={o.id} value={o.nome}>{o.nome}</option>)}
                   </select>
                 </Field>
@@ -328,14 +350,16 @@ function Escalas({ obreiros }: { obreiros: Obreiro[] }) {
   );
 }
 
-function Aniversariantes() {
+function Aniversariantes({ membros, obreiros }: { membros: Membro[]; obreiros: Obreiro[] }) {
   const [list, setList] = useStored<Aniv[]>("io_aniv", []);
   const [novo, setNovo] = useState<Aniv | null>(null);
-  const now = new Date(), mes = now.getMonth() + 1, dia = now.getDate();
+  const now = new Date();
+  const [mes, setMes] = useState(now.getMonth() + 1);
+  const dia = now.getDate();
+  const combined = birthdaysFromPeople(list, membros, obreiros);
   const md = (d: string) => { const p = d.split("-").map(Number); return { m: p[1] ?? 0, dd: p[2] ?? 0 }; };
-  const doMes = list.filter((a) => md(a.data).m === mes).sort((a, b) => md(a.data).dd - md(b.data).dd);
-  const hoje = doMes.filter((a) => md(a.data).dd === dia);
-  const nomeMes = now.toLocaleDateString("pt-BR", { month: "long" });
+  const doMes = birthdaysInMonth(combined, mes);
+  const hoje = birthdaysInMonth(combined, now.getMonth() + 1).filter((a) => md(a.data).dd === dia);
   return (
     <div>
       <Header title="Aniversariantes" action={<Btn onClick={() => setNovo({ id: uid(), nome: "", data: "", telefone: "" })}><Plus className="h-4 w-4" />Novo</Btn>} />
@@ -346,7 +370,13 @@ function Aniversariantes() {
           {a.telefone && <a href={`https://wa.me/55${a.telefone.replace(/\D/g, "")}?text=${encodeURIComponent(`Feliz aniversário, ${a.nome}! Deus te abençoe!`)}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-sm font-semibold underline"><MessageCircle className="h-4 w-4" />Dar parabéns</a>}
         </Card>
       ))}
-      <p className="mb-2 text-sm font-semibold capitalize text-muted-foreground">Mês de {nomeMes}</p>
+      <div className="mb-4 flex items-center gap-2">
+        <Btn variant="ghost" className="shrink-0 px-2" aria-label="Mês anterior" onClick={() => setMes(mes === 1 ? 12 : mes - 1)}><ChevronLeft className="h-5 w-5" /></Btn>
+        <select aria-label="Mês dos aniversários" className={`${inputCls} capitalize`} value={mes} onChange={(e) => setMes(Number(e.target.value))}>
+          {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{new Date(2026, i, 1).toLocaleDateString("pt-BR", { month: "long" })}</option>)}
+        </select>
+        <Btn variant="ghost" className="shrink-0 px-2" aria-label="Próximo mês" onClick={() => setMes(mes === 12 ? 1 : mes + 1)}><ChevronRight className="h-5 w-5" /></Btn>
+      </div>
       <div className="space-y-2">
         {doMes.length === 0 && <Empty text="Nenhum aniversariante neste mês." />}
         {doMes.map((a) => (
@@ -355,12 +385,13 @@ function Aniversariantes() {
             <div className="flex-1">
               <p className="font-bold">{a.nome}</p>
               <p className="text-xs text-muted-foreground">{fmtData(a.data)} {a.telefone && `· ${a.telefone}`}</p>
+              {a.origem && <span className="text-xs text-primary">{a.origem}</span>}
             </div>
-            <button onClick={() => confirm(`Excluir ${a.nome}?`) && setList(list.filter((x) => x.id !== a.id))} aria-label="Excluir" className="rounded-lg bg-destructive/10 p-2 text-destructive"><Trash2 className="h-4 w-4" /></button>
+            {!a.origem && <Btn variant="danger" className="px-2" onClick={() => confirm(`Excluir ${a.nome}?`) && setList(list.filter((x) => x.id !== a.id))} aria-label="Excluir"><Trash2 className="h-4 w-4" /></Btn>}
           </Card>
         ))}
       </div>
-      {list.length > doMes.length && <p className="mt-4 text-center text-xs text-muted-foreground">{list.length - doMes.length} aniversariante(s) em outros meses.</p>}
+      {combined.length > doMes.length && <p className="mt-4 text-center text-xs text-muted-foreground">{combined.length - doMes.length} aniversariante(s) em outros meses.</p>}
       {novo && (
         <Modal title="Novo aniversariante" onClose={() => setNovo(null)}>
           <div className="space-y-3">
@@ -487,7 +518,7 @@ export function ChurchApp() {
         {tab === "membros" && <Membros list={membros} setList={setMembros} />}
         {tab === "obreiros" && <Obreiros list={obreiros} setList={setObreiros} />}
         {tab === "escalas" && <Escalas obreiros={obreiros} />}
-        {tab === "aniv" && <Aniversariantes />}
+        {tab === "aniv" && <Aniversariantes membros={membros} obreiros={obreiros} />}
         {tab === "avisos" && <Avisos />}
         {tab === "eventos" && <Eventos />}
         {tab === "sair" && (
