@@ -213,7 +213,7 @@ function Auth() {
 }
 
 /* ---------- Início ---------- */
-function Home({ go, nome, staff, admin }: { go: (s: Screen) => void; nome: string; staff: boolean; admin: boolean }) {
+function Home({ go, nome, igreja, staff, admin }: { go: (s: Screen) => void; nome: string; igreja: string; staff: boolean; admin: boolean }) {
   const main: { id: Screen; label: string; icon: typeof Users }[] = [
     { id: "escala", label: "Escala", icon: CalendarDays },
     { id: "membros", label: "Membros", icon: Users },
