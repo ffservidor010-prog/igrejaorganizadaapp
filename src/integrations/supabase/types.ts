@@ -14,16 +14,285 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      atas: {
+        Row: {
+          ano: number
+          criado_em: string
+          data_reuniao: string | null
+          decisoes: string
+          id: string
+          local: string
+          mes: number
+          pauta: string
+          presentes: string
+          presidente: string
+          secretario: string
+          texto_completo: string
+        }
+        Insert: {
+          ano: number
+          criado_em?: string
+          data_reuniao?: string | null
+          decisoes?: string
+          id?: string
+          local?: string
+          mes: number
+          pauta?: string
+          presentes?: string
+          presidente?: string
+          secretario?: string
+          texto_completo?: string
+        }
+        Update: {
+          ano?: number
+          criado_em?: string
+          data_reuniao?: string | null
+          decisoes?: string
+          id?: string
+          local?: string
+          mes?: number
+          pauta?: string
+          presentes?: string
+          presidente?: string
+          secretario?: string
+          texto_completo?: string
+        }
+        Relationships: []
+      }
+      avisos: {
+        Row: {
+          created_at: string
+          id: string
+          texto: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          texto: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          texto?: string
+        }
+        Relationships: []
+      }
+      dizimos: {
+        Row: {
+          created_at: string
+          data: string
+          id: string
+          nome: string
+          obs: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          id?: string
+          nome: string
+          obs?: string
+          valor: number
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          id?: string
+          nome?: string
+          obs?: string
+          valor?: number
+        }
+        Relationships: []
+      }
+      escalas: {
+        Row: {
+          confirmado: boolean
+          created_at: string
+          data: string
+          funcao: string
+          id: string
+          membro_id: string
+          tipo_culto: string
+        }
+        Insert: {
+          confirmado?: boolean
+          created_at?: string
+          data: string
+          funcao: string
+          id?: string
+          membro_id: string
+          tipo_culto: string
+        }
+        Update: {
+          confirmado?: boolean
+          created_at?: string
+          data?: string
+          funcao?: string
+          id?: string
+          membro_id?: string
+          tipo_culto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalas_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eventos: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string
+          horario: string
+          id: string
+          local: string
+          titulo: string
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          descricao?: string
+          horario?: string
+          id?: string
+          local?: string
+          titulo: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string
+          horario?: string
+          id?: string
+          local?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
+      membros: {
+        Row: {
+          ativo: boolean
+          cargo: string
+          created_at: string
+          endereco: string
+          foto: string | null
+          id: string
+          ministerio: string
+          nascimento: string | null
+          nome: string
+          observacao: string
+          telefone: string
+        }
+        Insert: {
+          ativo?: boolean
+          cargo?: string
+          created_at?: string
+          endereco?: string
+          foto?: string | null
+          id?: string
+          ministerio?: string
+          nascimento?: string | null
+          nome: string
+          observacao?: string
+          telefone?: string
+        }
+        Update: {
+          ativo?: boolean
+          cargo?: string
+          created_at?: string
+          endereco?: string
+          foto?: string | null
+          id?: string
+          ministerio?: string
+          nascimento?: string | null
+          nome?: string
+          observacao?: string
+          telefone?: string
+        }
+        Relationships: []
+      }
+      ofertas: {
+        Row: {
+          created_at: string
+          data: string
+          id: string
+          obs: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          id?: string
+          obs?: string
+          valor: number
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          id?: string
+          obs?: string
+          valor?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          telefone: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          nome?: string
+          telefone?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          telefone?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_staff: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "pastor" | "lider" | "membro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +419,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "pastor", "lider", "membro"],
+    },
   },
 } as const
