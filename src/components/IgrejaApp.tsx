@@ -95,7 +95,7 @@ function useRows<T>(table: TableName, order: string, asc = true) {
 function useSave(table: TableName) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, values }: { id?: string; values: Record<string, unknown> }) => {
+    mutationFn: async ({ id, values }: { id?: string | undefined; values: Record<string, unknown> }) => {
       const q = id ? supabase.from(table).update(values as never).eq("id", id) : supabase.from(table).insert(values as never);
       const { error } = await q;
       if (error) throw error;
@@ -382,7 +382,7 @@ function AvisosScreen({ staff }: { staff: boolean }) {
   const save = useSave("avisos"); const del = useRemove("avisos");
   const [texto, setTexto] = useState("");
   const enviar = () => {
-    if (!texto.trim()) return toast.error("Escreva o aviso");
+    if (!texto.trim()) { toast.error("Escreva o aviso"); return; }
     window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
     if (staff) save.mutate({ values: { texto } }, { onSuccess: () => setTexto("") });
   };
@@ -408,7 +408,7 @@ function AvisosScreen({ staff }: { staff: boolean }) {
 function AnivScreen() {
   const { data: membros = [] } = useRows<Membro>("membros", "nome");
   const [mes, setMes] = useState(new Date().getMonth() + 1);
-  const people = membros.filter((m) => m.ativo && m.nascimento).map((m) => ({ id: m.id, nome: m.nome, telefone: m.telefone, nascimento: m.nascimento ?? undefined }));
+  const people = membros.filter((m) => m.ativo && m.nascimento).map((m) => ({ id: m.id, nome: m.nome, telefone: m.telefone, nascimento: m.nascimento ?? "" }));
   const list = birthdaysInMonth(birthdaysFromPeople([], people, []), mes);
   return (
     <div className="space-y-4">
@@ -459,7 +459,7 @@ function FinanceiroScreen({ tipo, staff }: { tipo: "dizimos" | "ofertas"; staff:
           <form className="space-y-3" onSubmit={(e) => {
             e.preventDefault();
             const valor = Number(form.valor.replace(",", "."));
-            if (!(valor > 0)) return toast.error("Valor inválido");
+            if (!(valor > 0)) { toast.error("Valor inválido"); return; }
             const values = tipo === "dizimos" ? { nome: form.nome, valor, data: form.data, obs: form.obs } : { valor, data: form.data, obs: form.obs };
             save.mutate({ values }, { onSuccess: () => setForm(null) });
           }}>
@@ -559,7 +559,7 @@ function AtasScreen({ staff }: { staff: boolean }) {
         <Modal title={edit.id ? "Editar ata" : "Nova ata"} onClose={() => setEdit(null)}>
           <form className="space-y-3" onSubmit={(e) => {
             e.preventDefault();
-            if (!edit.texto_completo.trim()) return toast.error("Gere ou escreva o texto da ata");
+            if (!edit.texto_completo.trim()) { toast.error("Gere ou escreva o texto da ata"); return; }
             localStorage.setItem("igreja-nome", edit.igreja);
             const { id, igreja: _i, horario: _h, ...values } = edit;
             save.mutate({ id, values: { ...values, data_reuniao: values.data_reuniao || null } }, { onSuccess: () => setEdit(null) });
