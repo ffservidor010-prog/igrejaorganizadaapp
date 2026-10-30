@@ -675,7 +675,7 @@ function AdminScreen({ igreja }: { igreja: string }) {
         <p className="text-center text-3xl font-bold tracking-[0.3em] text-primary">{convite || "…"}</p>
         <div className="grid grid-cols-2 gap-2">
           <a href={`https://wa.me/?text=${encodeURIComponent(msgConvite)}`} target="_blank" rel="noreferrer"
-            className="inline-flex items-center justify-center rounded-xl bg-whatsapp px-3 py-2 text-sm font-semibold text-whatsapp-foreground">Enviar no WhatsApp</a>
+            className="inline-flex items-center justify-center rounded-xl bg-success px-3 py-2 text-sm font-semibold text-success-foreground">Enviar no WhatsApp</a>
           <Btn variant="ghost" disabled={gerar.isPending} onClick={() => { if (confirm("Gerar um novo código? O código atual deixará de funcionar.")) gerar.mutate(); }}>Gerar novo código</Btn>
         </div>
         <p className="text-xs text-muted-foreground">Quem entrar com este código vira Membro da sua igreja.</p>
@@ -735,7 +735,7 @@ export function IgrejaApp() {
             <button onClick={sair} className="flex items-center gap-1 text-sm text-muted-foreground"><LogOut className="h-4 w-4" />Sair</button>
           </div>
           {semIgreja ? (
-            <Onboarding inicial={{ tipo: meta.igreja_tipo === "convite" ? "convite" : "nova", igreja: meta.igreja_nome ?? "", codigo: meta.igreja_codigo ?? "" }}
+            <Onboarding inicial={{ tipo: meta['igreja_tipo'] === "convite" ? "convite" : "nova", igreja: meta['igreja_nome'] ?? "", codigo: meta['igreja_codigo'] ?? "" }}
               onDone={() => { qc.clear(); refetchMe(); setScreen("home"); }} />
           ) : !me ? null : <>
           {screen === "home" && <Home go={setScreen} nome={me?.nome ?? ""} igreja={me.igreja} staff={staff} admin={admin} />}
