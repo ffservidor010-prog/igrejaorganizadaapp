@@ -221,12 +221,12 @@ function Home({ go, nome, igreja, staff, admin }: { go: (s: Screen) => void; nom
     { id: "avisos", label: "Avisos", icon: Megaphone },
     { id: "atas", label: "Ata Mensal", icon: FileText },
   ];
-  const extra: { id: Screen; label: string; icon: typeof Users }[] = [
+  const extra: { id: Screen; label: string; icon: typeof Users }[] = ([
     { id: "aniv", label: "Aniversariantes", icon: Cake },
     { id: "dizimos", label: "Dízimos", icon: HandCoins },
     { id: "ofertas", label: "Ofertas", icon: Gift },
     ...(admin ? [{ id: "admin" as Screen, label: "Admin", icon: Shield }] : []),
-  ].filter((b) => admin || (b.id !== "dizimos" && b.id !== "ofertas"));
+  ] as { id: Screen; label: string; icon: typeof Users }[]).filter((b) => admin || (b.id !== "dizimos" && b.id !== "ofertas"));
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-center pt-4 text-center">
