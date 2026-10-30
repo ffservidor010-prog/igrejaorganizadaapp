@@ -114,9 +114,56 @@ function useRemove(table: TableName) {
 }
 
 /* ---------- Login ---------- */
+function IgrejaEscolha({ value, onChange }: { value: { tipo: "nova" | "convite"; igreja: string; codigo: string }; onChange: (v: { tipo: "nova" | "convite"; igreja: string; codigo: string }) => void }) {
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        {([["nova", "Criar nova igreja"], ["convite", "Entrar com convite"]] as const).map(([t, l]) => (
+          <button key={t} type="button" onClick={() => onChange({ ...value, tipo: t })}
+            className={`rounded-xl border p-3 text-sm font-semibold ${value.tipo === t ? "border-primary bg-primary/15 text-primary" : "border-border bg-secondary"}`}>{l}</button>
+        ))}
+      </div>
+      {value.tipo === "nova"
+        ? <Field label="Nome da igreja"><input required className={inputCls} value={value.igreja} onChange={(e) => onChange({ ...value, igreja: e.target.value })} /></Field>
+        : <Field label="Código de convite"><input required className={`${inputCls} uppercase tracking-widest`} value={value.codigo} onChange={(e) => onChange({ ...value, codigo: e.target.value.toUpperCase() })} /></Field>}
+    </div>
+  );
+}
+
+async function vincularIgreja(v: { tipo: "nova" | "convite"; igreja: string; codigo: string }) {
+  const { error } = v.tipo === "nova"
+    ? await supabase.rpc("criar_igreja", { _nome: v.igreja })
+    : await supabase.rpc("entrar_igreja", { _codigo: v.codigo });
+  if (error) throw error;
+}
+
+function Onboarding({ onDone, inicial }: { onDone: () => void; inicial: { tipo: "nova" | "convite"; igreja: string; codigo: string } }) {
+  const [v, setV] = useState(inicial);
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); setBusy(true);
+    try { await vincularIgreja(v); toast.success(v.tipo === "nova" ? "Igreja criada! Você é o ADM." : "Bem-vindo(a) à igreja!"); onDone(); }
+    catch (err) { toast.error(errMsg(err)); }
+    setBusy(false);
+  };
+  return (
+    <div className="flex min-h-[70vh] flex-col items-center justify-center">
+      <img src={logo} alt={APP_NAME} width={256} height={256} className="h-20 w-20 rounded-3xl shadow-soft" />
+      <h2 className="mb-4 mt-3 text-xl font-bold text-primary">Escolha sua igreja</h2>
+      <Card className="w-full max-w-sm">
+        <form onSubmit={submit} className="space-y-3">
+          <IgrejaEscolha value={v} onChange={setV} />
+          <Btn disabled={busy} className="w-full">Continuar</Btn>
+        </form>
+      </Card>
+    </div>
+  );
+}
+
 function Auth() {
   const [mode, setMode] = useState<"in" | "up">("in");
   const [f, setF] = useState({ nome: "", telefone: "", email: "", senha: "" });
+  const [ig, setIg] = useState<{ tipo: "nova" | "convite"; igreja: string; codigo: string }>({ tipo: "nova", igreja: "", codigo: "" });
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const submit = async (e: React.FormEvent) => {
@@ -128,10 +175,11 @@ function Auth() {
       } else {
         const { data, error } = await supabase.auth.signUp({
           email: f.email, password: f.senha,
-          options: { emailRedirectTo: window.location.origin, data: { nome: f.nome, telefone: f.telefone } },
+          options: { emailRedirectTo: window.location.origin, data: { nome: f.nome, telefone: f.telefone, igreja_tipo: ig.tipo, igreja_nome: ig.igreja, igreja_codigo: ig.codigo } },
         });
         if (error) throw error;
         if (!data.session) setSent(true);
+        else { try { await vincularIgreja(ig); } catch (err) { toast.error(errMsg(err)); } }
       }
     } catch (err) { toast.error(errMsg(err) === "Invalid login credentials" ? "E-mail ou senha incorretos" : errMsg(err)); }
     setBusy(false);
@@ -147,6 +195,7 @@ function Auth() {
         ) : (
           <form onSubmit={submit} className="space-y-3">
             {mode === "up" && <>
+              <IgrejaEscolha value={ig} onChange={setIg} />
               <Field label="Nome"><input required className={inputCls} value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} /></Field>
               <Field label="Telefone com DDD"><input required className={inputCls} inputMode="tel" placeholder="(96) 99999-9999" value={f.telefone} onChange={(e) => setF({ ...f, telefone: e.target.value })} /></Field>
             </>}
@@ -164,7 +213,7 @@ function Auth() {
 }
 
 /* ---------- Início ---------- */
-function Home({ go, nome, staff, admin }: { go: (s: Screen) => void; nome: string; staff: boolean; admin: boolean }) {
+function Home({ go, nome, igreja, staff, admin }: { go: (s: Screen) => void; nome: string; igreja: string; staff: boolean; admin: boolean }) {
   const main: { id: Screen; label: string; icon: typeof Users }[] = [
     { id: "escala", label: "Escala", icon: CalendarDays },
     { id: "membros", label: "Membros", icon: Users },
@@ -172,18 +221,18 @@ function Home({ go, nome, staff, admin }: { go: (s: Screen) => void; nome: strin
     { id: "avisos", label: "Avisos", icon: Megaphone },
     { id: "atas", label: "Ata Mensal", icon: FileText },
   ];
-  const extra: { id: Screen; label: string; icon: typeof Users }[] = [
+  const extra: { id: Screen; label: string; icon: typeof Users }[] = ([
     { id: "aniv", label: "Aniversariantes", icon: Cake },
     { id: "dizimos", label: "Dízimos", icon: HandCoins },
     { id: "ofertas", label: "Ofertas", icon: Gift },
     ...(admin ? [{ id: "admin" as Screen, label: "Admin", icon: Shield }] : []),
-  ];
+  ] as { id: Screen; label: string; icon: typeof Users }[]).filter((b) => admin || (b.id !== "dizimos" && b.id !== "ofertas"));
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-center pt-4 text-center">
         <img src={logo} alt={APP_NAME} width={256} height={256} className="h-24 w-24 rounded-3xl shadow-soft" />
-        <h1 className="mt-3 text-2xl font-bold text-primary">{APP_NAME}</h1>
-        <p className="text-sm text-muted-foreground">Bem-vindo(a), {nome || "irmão(ã)"}{staff ? " · acesso de liderança" : ""}</p>
+        <h1 className="mt-3 text-2xl font-bold text-primary">{igreja || APP_NAME}</h1>
+        <p className="text-sm text-muted-foreground">Bem-vindo(a), {nome || "irmão(ã)"}{admin ? " · ADM" : staff ? " · acesso de liderança" : ""}</p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         {main.map((b, i) => (
@@ -591,7 +640,7 @@ function AtasScreen({ staff }: { staff: boolean }) {
 }
 
 /* ---------- Admin ---------- */
-function AdminScreen() {
+function AdminScreen({ igreja }: { igreja: string }) {
   const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["contas"],
@@ -601,18 +650,37 @@ function AdminScreen() {
       return (p.data ?? []).map((u) => ({ ...u, roles: (r.data ?? []).filter((x) => x.user_id === u.id).map((x) => x.role) }));
     },
   });
+  const { data: convite } = useQuery({
+    queryKey: ["convite"],
+    queryFn: async () => { const { data, error } = await supabase.from("igrejas").select("codigo_convite").maybeSingle(); if (error) throw error; return data?.codigo_convite ?? ""; },
+  });
+  const gerar = useMutation({
+    mutationFn: async () => { const { error } = await supabase.rpc("gerar_codigo_convite"); if (error) throw error; },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["convite"] }); toast.success("Novo código gerado. O anterior deixou de valer."); },
+    onError: (e) => toast.error(errMsg(e)),
+  });
   const setRole = useMutation({
     mutationFn: async ({ id, role }: { id: string; role: "admin" | "pastor" | "lider" | "membro" }) => {
-      const d = await supabase.from("user_roles").delete().eq("user_id", id); if (d.error) throw d.error;
-      const i = await supabase.from("user_roles").insert({ user_id: id, role }); if (i.error) throw i.error;
+      const { error } = await supabase.rpc("definir_papel", { _user_id: id, _role: role }); if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["contas"] }); toast.success("Acesso atualizado"); },
     onError: (e) => toast.error(errMsg(e)),
   });
+  const msgConvite = `Olá! Entre na ${igreja} pelo ${APP_NAME}: ${typeof window !== "undefined" ? window.location.origin : ""}\nAo criar sua conta, escolha "Entrar com convite" e use o código: ${convite}`;
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold">Admin · Contas</h2>
-      <p className="text-sm text-muted-foreground">Só <b>Pastor</b> e <b>Admin</b> podem criar e editar escalas, membros, eventos, atas e finanças.</p>
+      <h2 className="text-xl font-bold">Admin · {igreja}</h2>
+      <Card className="space-y-3">
+        <p className="text-sm font-semibold">Código de convite</p>
+        <p className="text-center text-3xl font-bold tracking-[0.3em] text-primary">{convite || "…"}</p>
+        <div className="grid grid-cols-2 gap-2">
+          <a href={`https://wa.me/?text=${encodeURIComponent(msgConvite)}`} target="_blank" rel="noreferrer"
+            className="inline-flex items-center justify-center rounded-xl bg-success px-3 py-2 text-sm font-semibold text-success-foreground">Enviar no WhatsApp</a>
+          <Btn variant="ghost" disabled={gerar.isPending} onClick={() => { if (confirm("Gerar um novo código? O código atual deixará de funcionar.")) gerar.mutate(); }}>Gerar novo código</Btn>
+        </div>
+        <p className="text-xs text-muted-foreground">Quem entrar com este código vira Membro da sua igreja.</p>
+      </Card>
+      <p className="text-sm text-muted-foreground"><b>Pastor</b> e <b>Admin</b> editam escalas, membros, eventos e atas. Só o <b>Admin</b> vê dízimos e ofertas.</p>
       {(data ?? []).map((u) => (
         <Card key={u.id} className="flex items-center gap-3 p-3">
           <div className="min-w-0 flex-1"><p className="truncate font-semibold">{u.nome || "(sem nome)"}</p><p className="text-xs text-muted-foreground">{u.telefone}</p></div>
@@ -639,16 +707,20 @@ export function IgrejaApp() {
     return () => data.subscription.unsubscribe();
   }, [qc]);
   const uid = session?.user.id;
-  const { data: me } = useQuery({
+  const { data: me, isLoading: meLoading, refetch: refetchMe } = useQuery({
     queryKey: ["me", uid], enabled: !!uid,
     queryFn: async () => {
-      const [p, r] = await Promise.all([supabase.from("profiles").select("nome").eq("id", uid!).maybeSingle(), supabase.from("user_roles").select("role").eq("user_id", uid!)]);
-      return { nome: p.data?.nome ?? "", roles: (r.data ?? []).map((x) => x.role) };
+      const [p, r] = await Promise.all([supabase.from("profiles").select("nome, igreja_id, igrejas(nome)").eq("id", uid!).maybeSingle(), supabase.from("user_roles").select("role").eq("user_id", uid!)]);
+      if (p.error) throw p.error;
+      const ig = p.data?.igrejas as { nome: string } | null | undefined;
+      return { nome: p.data?.nome ?? "", igrejaId: p.data?.igreja_id ?? null, igreja: ig?.nome ?? "", roles: (r.data ?? []).map((x) => x.role) };
     },
   });
   const admin = !!me?.roles.includes("admin");
   const staff = admin || !!me?.roles.includes("pastor");
   const sair = async () => { await qc.cancelQueries(); qc.clear(); await supabase.auth.signOut(); setScreen("home"); };
+  const meta = session?.user.user_metadata ?? {};
+  const semIgreja = !!session && !meLoading && !!me && !me.igrejaId;
 
   if (session === undefined) return <div className="min-h-screen bg-background" />;
   return (
@@ -657,21 +729,26 @@ export function IgrejaApp() {
       {!session ? <Auth /> : (
         <div className="mx-auto max-w-lg px-4 pb-16 pt-[max(env(safe-area-inset-top),1rem)]">
           <div className="mb-4 flex items-center justify-between">
-            {screen !== "home"
+            {screen !== "home" && !semIgreja
               ? <button onClick={() => setScreen("home")} className="flex items-center gap-1 text-sm text-primary"><ArrowLeft className="h-4 w-4" />Início</button>
-              : <span className="text-xs uppercase tracking-widest text-muted-foreground">{APP_NAME}</span>}
+              : <span className="truncate text-xs uppercase tracking-widest text-muted-foreground">{me?.igreja || APP_NAME}</span>}
             <button onClick={sair} className="flex items-center gap-1 text-sm text-muted-foreground"><LogOut className="h-4 w-4" />Sair</button>
           </div>
-          {screen === "home" && <Home go={setScreen} nome={me?.nome ?? ""} staff={staff} admin={admin} />}
+          {semIgreja ? (
+            <Onboarding inicial={{ tipo: meta['igreja_tipo'] === "convite" ? "convite" : "nova", igreja: meta['igreja_nome'] ?? "", codigo: meta['igreja_codigo'] ?? "" }}
+              onDone={() => { qc.clear(); refetchMe(); setScreen("home"); }} />
+          ) : !me ? null : <>
+          {screen === "home" && <Home go={setScreen} nome={me?.nome ?? ""} igreja={me.igreja} staff={staff} admin={admin} />}
           {screen === "escala" && <EscalaScreen staff={staff} />}
           {screen === "membros" && <MembrosScreen staff={staff} />}
           {screen === "eventos" && <EventosScreen staff={staff} />}
           {screen === "avisos" && <AvisosScreen staff={staff} />}
           {screen === "atas" && <AtasScreen staff={staff} />}
           {screen === "aniv" && <AnivScreen />}
-          {screen === "dizimos" && <FinanceiroScreen tipo="dizimos" staff={staff} />}
-          {screen === "ofertas" && <FinanceiroScreen tipo="ofertas" staff={staff} />}
-          {screen === "admin" && admin && <AdminScreen />}
+          {screen === "dizimos" && admin && <FinanceiroScreen tipo="dizimos" staff={admin} />}
+          {screen === "ofertas" && admin && <FinanceiroScreen tipo="ofertas" staff={admin} />}
+          {screen === "admin" && admin && <AdminScreen igreja={me.igreja} />}
+          </>}
         </div>
       )}
     </div>
