@@ -114,9 +114,56 @@ function useRemove(table: TableName) {
 }
 
 /* ---------- Login ---------- */
+function IgrejaEscolha({ value, onChange }: { value: { tipo: "nova" | "convite"; igreja: string; codigo: string }; onChange: (v: { tipo: "nova" | "convite"; igreja: string; codigo: string }) => void }) {
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        {([["nova", "Criar nova igreja"], ["convite", "Entrar com convite"]] as const).map(([t, l]) => (
+          <button key={t} type="button" onClick={() => onChange({ ...value, tipo: t })}
+            className={`rounded-xl border p-3 text-sm font-semibold ${value.tipo === t ? "border-primary bg-primary/15 text-primary" : "border-border bg-secondary"}`}>{l}</button>
+        ))}
+      </div>
+      {value.tipo === "nova"
+        ? <Field label="Nome da igreja"><input required className={inputCls} value={value.igreja} onChange={(e) => onChange({ ...value, igreja: e.target.value })} /></Field>
+        : <Field label="Código de convite"><input required className={`${inputCls} uppercase tracking-widest`} value={value.codigo} onChange={(e) => onChange({ ...value, codigo: e.target.value.toUpperCase() })} /></Field>}
+    </div>
+  );
+}
+
+async function vincularIgreja(v: { tipo: "nova" | "convite"; igreja: string; codigo: string }) {
+  const { error } = v.tipo === "nova"
+    ? await supabase.rpc("criar_igreja", { _nome: v.igreja })
+    : await supabase.rpc("entrar_igreja", { _codigo: v.codigo });
+  if (error) throw error;
+}
+
+function Onboarding({ onDone, inicial }: { onDone: () => void; inicial: { tipo: "nova" | "convite"; igreja: string; codigo: string } }) {
+  const [v, setV] = useState(inicial);
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); setBusy(true);
+    try { await vincularIgreja(v); toast.success(v.tipo === "nova" ? "Igreja criada! Você é o ADM." : "Bem-vindo(a) à igreja!"); onDone(); }
+    catch (err) { toast.error(errMsg(err)); }
+    setBusy(false);
+  };
+  return (
+    <div className="flex min-h-[70vh] flex-col items-center justify-center">
+      <img src={logo} alt={APP_NAME} width={256} height={256} className="h-20 w-20 rounded-3xl shadow-soft" />
+      <h2 className="mb-4 mt-3 text-xl font-bold text-primary">Escolha sua igreja</h2>
+      <Card className="w-full max-w-sm">
+        <form onSubmit={submit} className="space-y-3">
+          <IgrejaEscolha value={v} onChange={setV} />
+          <Btn disabled={busy} className="w-full">Continuar</Btn>
+        </form>
+      </Card>
+    </div>
+  );
+}
+
 function Auth() {
   const [mode, setMode] = useState<"in" | "up">("in");
   const [f, setF] = useState({ nome: "", telefone: "", email: "", senha: "" });
+  const [ig, setIg] = useState<{ tipo: "nova" | "convite"; igreja: string; codigo: string }>({ tipo: "nova", igreja: "", codigo: "" });
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const submit = async (e: React.FormEvent) => {
@@ -128,10 +175,11 @@ function Auth() {
       } else {
         const { data, error } = await supabase.auth.signUp({
           email: f.email, password: f.senha,
-          options: { emailRedirectTo: window.location.origin, data: { nome: f.nome, telefone: f.telefone } },
+          options: { emailRedirectTo: window.location.origin, data: { nome: f.nome, telefone: f.telefone, igreja_tipo: ig.tipo, igreja_nome: ig.igreja, igreja_codigo: ig.codigo } },
         });
         if (error) throw error;
         if (!data.session) setSent(true);
+        else { try { await vincularIgreja(ig); } catch (err) { toast.error(errMsg(err)); } }
       }
     } catch (err) { toast.error(errMsg(err) === "Invalid login credentials" ? "E-mail ou senha incorretos" : errMsg(err)); }
     setBusy(false);
@@ -147,6 +195,7 @@ function Auth() {
         ) : (
           <form onSubmit={submit} className="space-y-3">
             {mode === "up" && <>
+              <IgrejaEscolha value={ig} onChange={setIg} />
               <Field label="Nome"><input required className={inputCls} value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} /></Field>
               <Field label="Telefone com DDD"><input required className={inputCls} inputMode="tel" placeholder="(96) 99999-9999" value={f.telefone} onChange={(e) => setF({ ...f, telefone: e.target.value })} /></Field>
             </>}
