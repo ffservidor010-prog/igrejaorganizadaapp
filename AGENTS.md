@@ -9,5 +9,7 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Derive automatic birthdays from current member/worker records through browser-safe planning helpers; avoid copied birthday rows so edits and deletions remain synchronized.
-- Store dated schedules separately from legacy weekly schedules, keyed by local date and service; retain the legacy data for explicit copying without silently assigning it to every week.
+- All app data lives in the user's external Supabase; the browser client reads/writes directly and RLS is the security boundary (signed-in read, admin/pastor write via `is_staff`).
+- Roles live in `user_roles`; the first signup becomes admin via the `handle_new_user` trigger, so never create throwaway test accounts on an empty project.
+- Birthdays are derived from `membros.nascimento` through browser-safe helpers; never store copied birthday rows.
+- Ata text and WhatsApp messages are built by pure helpers in `src/lib/igreja.ts` (tested); PDF/DOC export stays client-side in `src/lib/ata-export.ts`.

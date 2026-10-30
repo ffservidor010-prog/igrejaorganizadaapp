@@ -1,0 +1,679 @@
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast, Toaster } from "sonner";
+import {
+  ArrowLeft, CalendarDays, Users, PartyPopper, Megaphone, FileText, Cake, HandCoins, Gift, Shield, LogOut,
+  Plus, Trash2, Pencil, MessageCircle, Mail, Download, Check, ChevronLeft, ChevronRight, Search, Sparkles, Save,
+} from "lucide-react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
+import logo from "@/assets/logo.jpg";
+import {
+  APP_NAME, CARGOS, CARGO_LABEL, FUNCOES, MESES, TIPOS_CULTO, dataBR, escalaMensagem, gerarTextoAta, monthRange, waLink,
+} from "@/lib/igreja";
+import { birthdaysFromPeople, birthdaysInMonth, localDateKey, sumValues, totalsByPerson } from "@/lib/church-planning";
+import { ataDoc, ataPdf, baixar, compartilharPdf } from "@/lib/ata-export";
+
+type Membro = Tables<"membros">;
+type Escala = Tables<"escalas">;
+type Evento = Tables<"eventos">;
+type Ata = Tables<"atas">;
+type Screen = "home" | "escala" | "membros" | "eventos" | "avisos" | "atas" | "aniv" | "dizimos" | "ofertas" | "admin";
+type TableName = "membros" | "escalas" | "eventos" | "atas" | "dizimos" | "ofertas" | "avisos";
+
+const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : (e as { message?: string })?.message ?? "Erro");
+
+/* ---------- UI básicos ---------- */
+function Btn({ children, variant = "primary", className = "", ...p }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" | "danger" | "whats" | "info" }) {
+  const v = {
+    primary: "bg-hero text-primary-foreground shadow-soft",
+    ghost: "bg-secondary text-secondary-foreground border border-border",
+    danger: "bg-destructive text-destructive-foreground",
+    whats: "bg-success text-success-foreground",
+    info: "bg-info text-info-foreground",
+  }[variant];
+  return <button {...p} className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-95 disabled:opacity-50 ${v} ${className}`}>{children}</button>;
+}
+const inputCls = "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring";
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return <label className="block space-y-1"><span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>{children}</label>;
+}
+function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={`rounded-2xl border border-border bg-card p-4 ${className}`}>{children}</div>;
+}
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/80 backdrop-blur-sm sm:items-center" onClick={onClose}>
+      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-border bg-card p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-bold text-primary">{title}</h3><button onClick={onClose} className="text-muted-foreground">✕</button></div>
+        {children}
+      </div>
+    </div>
+  );
+}
+function Empty({ text }: { text: string }) {
+  return <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{text}</p>;
+}
+function WaBtn({ phone, msg, label }: { phone: string; msg?: string; label?: string }) {
+  if (!phone) return <span className="text-xs text-muted-foreground">sem telefone</span>;
+  return (
+    <a href={waLink(phone, msg)} target="_blank" rel="noreferrer" aria-label={`WhatsApp ${label ?? ""}`}
+      className="inline-flex h-10 min-w-10 items-center justify-center gap-1 rounded-full bg-success px-3 text-success-foreground shadow-soft active:scale-95">
+      <MessageCircle className="h-5 w-5" />
+    </a>
+  );
+}
+function Avatar({ m }: { m: Pick<Membro, "nome" | "foto"> }) {
+  return m.foto
+    ? <img src={m.foto} alt={m.nome} className="h-12 w-12 shrink-0 rounded-full border-2 border-primary object-cover" />
+    : <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-secondary font-bold text-primary">{m.nome.slice(0, 1).toUpperCase()}</div>;
+}
+function MonthNav({ ano, mes, set }: { ano: number; mes: number; set: (a: number, m: number) => void }) {
+  const move = (d: number) => { const dt = new Date(ano, mes - 1 + d, 1); set(dt.getFullYear(), dt.getMonth() + 1); };
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-border bg-card p-2">
+      <button onClick={() => move(-1)} className="p-2 text-primary" aria-label="Mês anterior"><ChevronLeft /></button>
+      <span className="font-semibold capitalize">{MESES[mes - 1]} {ano}</span>
+      <button onClick={() => move(1)} className="p-2 text-primary" aria-label="Próximo mês"><ChevronRight /></button>
+    </div>
+  );
+}
+
+/* ---------- dados ---------- */
+function useRows<T>(table: TableName, order: string, asc = true) {
+  return useQuery({
+    queryKey: [table],
+    queryFn: async () => {
+      const { data, error } = await supabase.from(table).select("*").order(order, { ascending: asc });
+      if (error) throw error;
+      return (data ?? []) as T[];
+    },
+  });
+}
+function useSave(table: TableName) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, values }: { id?: string | undefined; values: Record<string, unknown> }) => {
+      const q = id ? supabase.from(table).update(values as never).eq("id", id) : supabase.from(table).insert(values as never);
+      const { error } = await q;
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: [table] }); toast.success("Salvo"); },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+}
+function useRemove(table: TableName) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => { const { error } = await supabase.from(table).delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: [table] }); toast.success("Apagado"); },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+}
+
+/* ---------- Login ---------- */
+function Auth() {
+  const [mode, setMode] = useState<"in" | "up">("in");
+  const [f, setF] = useState({ nome: "", telefone: "", email: "", senha: "" });
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); setBusy(true);
+    try {
+      if (mode === "in") {
+        const { error } = await supabase.auth.signInWithPassword({ email: f.email, password: f.senha });
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email: f.email, password: f.senha,
+          options: { emailRedirectTo: window.location.origin, data: { nome: f.nome, telefone: f.telefone } },
+        });
+        if (error) throw error;
+        if (!data.session) setSent(true);
+      }
+    } catch (err) { toast.error(errMsg(err) === "Invalid login credentials" ? "E-mail ou senha incorretos" : errMsg(err)); }
+    setBusy(false);
+  };
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center px-5 py-10">
+      <img src={logo} alt={APP_NAME} width={256} height={256} className="h-28 w-28 rounded-3xl shadow-soft" />
+      <h1 className="mt-4 text-3xl font-bold text-primary">{APP_NAME}</h1>
+      <p className="mb-6 text-sm text-muted-foreground">Administração da igreja</p>
+      <Card className="w-full max-w-sm">
+        {sent ? (
+          <p className="text-center text-sm">Enviamos um link para <b>{f.email}</b>. Abra seu e-mail, confirme a conta e depois entre aqui.</p>
+        ) : (
+          <form onSubmit={submit} className="space-y-3">
+            {mode === "up" && <>
+              <Field label="Nome"><input required className={inputCls} value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} /></Field>
+              <Field label="Telefone com DDD"><input required className={inputCls} inputMode="tel" placeholder="(96) 99999-9999" value={f.telefone} onChange={(e) => setF({ ...f, telefone: e.target.value })} /></Field>
+            </>}
+            <Field label="E-mail"><input required type="email" className={inputCls} value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+            <Field label="Senha"><input required type="password" minLength={6} className={inputCls} value={f.senha} onChange={(e) => setF({ ...f, senha: e.target.value })} /></Field>
+            <Btn disabled={busy} className="w-full">{mode === "in" ? "Entrar" : "Criar conta"}</Btn>
+            <button type="button" onClick={() => setMode(mode === "in" ? "up" : "in")} className="w-full text-sm text-primary">
+              {mode === "in" ? "Não tem conta? Criar conta" : "Já tenho conta. Entrar"}
+            </button>
+          </form>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+/* ---------- Início ---------- */
+function Home({ go, nome, staff, admin }: { go: (s: Screen) => void; nome: string; staff: boolean; admin: boolean }) {
+  const main: { id: Screen; label: string; icon: typeof Users }[] = [
+    { id: "escala", label: "Escala", icon: CalendarDays },
+    { id: "membros", label: "Membros", icon: Users },
+    { id: "eventos", label: "Eventos", icon: PartyPopper },
+    { id: "avisos", label: "Avisos", icon: Megaphone },
+    { id: "atas", label: "Ata Mensal", icon: FileText },
+  ];
+  const extra: { id: Screen; label: string; icon: typeof Users }[] = [
+    { id: "aniv", label: "Aniversariantes", icon: Cake },
+    { id: "dizimos", label: "Dízimos", icon: HandCoins },
+    { id: "ofertas", label: "Ofertas", icon: Gift },
+    ...(admin ? [{ id: "admin" as Screen, label: "Admin", icon: Shield }] : []),
+  ];
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col items-center pt-4 text-center">
+        <img src={logo} alt={APP_NAME} width={256} height={256} className="h-24 w-24 rounded-3xl shadow-soft" />
+        <h1 className="mt-3 text-2xl font-bold text-primary">{APP_NAME}</h1>
+        <p className="text-sm text-muted-foreground">Bem-vindo(a), {nome || "irmão(ã)"}{staff ? " · acesso de liderança" : ""}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {main.map((b, i) => (
+          <button key={b.id} onClick={() => go(b.id)}
+            className={`flex flex-col items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-card p-5 shadow-soft active:scale-95 ${i === main.length - 1 ? "col-span-2" : ""}`}>
+            <b.icon className="h-8 w-8 text-primary" /><span className="font-semibold">{b.label}</span>
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {extra.map((b) => (
+          <button key={b.id} onClick={() => go(b.id)} className="flex flex-col items-center gap-1 rounded-xl border border-border bg-secondary p-3 text-xs active:scale-95">
+            <b.icon className="h-5 w-5 text-primary" />{b.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Escala ---------- */
+function EscalaScreen({ staff }: { staff: boolean }) {
+  const now = new Date();
+  const [ym, setYm] = useState({ a: now.getFullYear(), m: now.getMonth() + 1 });
+  const { data: escalas = [] } = useRows<Escala>("escalas", "data");
+  const { data: membros = [] } = useRows<Membro>("membros", "nome");
+  const save = useSave("escalas"); const del = useRemove("escalas");
+  const [form, setForm] = useState<{ data: string; tipo_culto: string; funcao: string; membro_id: string } | null>(null);
+  const byId = useMemo(() => new Map(membros.map((m) => [m.id, m])), [membros]);
+  const { ini, fim } = monthRange(ym.a, ym.m);
+  const doMes = escalas.filter((e) => e.data >= ini && e.data <= fim);
+  const grupos = useMemo(() => {
+    const g = new Map<string, Escala[]>();
+    for (const e of doMes) { const k = `${e.data}|${e.tipo_culto}`; g.set(k, [...(g.get(k) ?? []), e]); }
+    return [...g.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [doMes]);
+  const hoje = localDateKey(now);
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between"><h2 className="text-xl font-bold">Escala</h2>
+        {staff && <Btn onClick={() => setForm({ data: hoje, tipo_culto: TIPOS_CULTO[0]!, funcao: FUNCOES[0]!, membro_id: membros[0]?.id ?? "" })}><Plus className="h-4 w-4" />Escalar</Btn>}
+      </div>
+      <MonthNav ano={ym.a} mes={ym.m} set={(a, m) => setYm({ a, m })} />
+      {!grupos.length && <Empty text="Nenhuma escala neste mês." />}
+      {grupos.map(([k, itens]) => {
+        const [data, tipo] = k.split("|");
+        return (
+          <Card key={k} className={data! < hoje ? "opacity-70" : ""}>
+            <div className="mb-3 flex items-baseline justify-between"><span className="font-bold text-primary">{dataBR(data!)}</span><span className="text-sm text-muted-foreground">{tipo}</span></div>
+            <ul className="space-y-2">
+              {itens.map((e) => {
+                const m = byId.get(e.membro_id);
+                return (
+                  <li key={e.id} className="flex items-center gap-3 rounded-xl bg-secondary p-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">{m?.nome ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground">{e.funcao} · {e.confirmado ? <span className="text-success">confirmado</span> : "aguardando"}</p>
+                    </div>
+                    {staff && <button aria-label="Confirmar" onClick={() => save.mutate({ id: e.id, values: { confirmado: !e.confirmado } })} className={`rounded-full p-2 ${e.confirmado ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"}`}><Check className="h-4 w-4" /></button>}
+                    {staff && <button aria-label="Remover" onClick={() => confirm("Remover da escala?") && del.mutate(e.id)} className="p-2 text-destructive"><Trash2 className="h-4 w-4" /></button>}
+                    {m && <WaBtn phone={m.telefone} label={m.nome} msg={escalaMensagem(m.nome, e.funcao, e.data)} />}
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        );
+      })}
+      {form && (
+        <Modal title="Escalar pessoa" onClose={() => setForm(null)}>
+          {!membros.length ? <Empty text="Cadastre membros primeiro." /> : (
+            <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save.mutate({ values: form }, { onSuccess: () => setForm({ ...form, membro_id: form.membro_id }) }); }}>
+              <Field label="Data do culto"><input type="date" required className={inputCls} value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} /></Field>
+              <Field label="Tipo de culto"><select className={inputCls} value={form.tipo_culto} onChange={(e) => setForm({ ...form, tipo_culto: e.target.value })}>{TIPOS_CULTO.map((t) => <option key={t}>{t}</option>)}</select></Field>
+              <Field label="Função"><input list="funcoes" required className={inputCls} value={form.funcao} onChange={(e) => setForm({ ...form, funcao: e.target.value })} /><datalist id="funcoes">{FUNCOES.map((f) => <option key={f} value={f} />)}</datalist></Field>
+              <Field label="Pessoa"><select required className={inputCls} value={form.membro_id} onChange={(e) => setForm({ ...form, membro_id: e.target.value })}>{membros.filter((m) => m.ativo).map((m) => <option key={m.id} value={m.id}>{m.nome}{m.ministerio ? ` (${m.ministerio})` : ""}</option>)}</select></Field>
+              <Btn className="w-full" disabled={save.isPending}><Save className="h-4 w-4" />Salvar e escalar outra</Btn>
+            </form>
+          )}
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Membros ---------- */
+async function fotoParaDataUrl(file: File) {
+  const img = await createImageBitmap(file);
+  const s = 256; const c = document.createElement("canvas"); c.width = s; c.height = s;
+  const ctx = c.getContext("2d")!; const r = Math.max(s / img.width, s / img.height);
+  ctx.drawImage(img, (s - img.width * r) / 2, (s - img.height * r) / 2, img.width * r, img.height * r);
+  return c.toDataURL("image/jpeg", 0.8);
+}
+const membroVazio = { nome: "", telefone: "", cargo: "membro", ministerio: "", foto: null as string | null, ativo: true, nascimento: "", endereco: "", observacao: "" };
+
+function MembrosScreen({ staff }: { staff: boolean }) {
+  const { data: membros = [], isLoading } = useRows<Membro>("membros", "nome");
+  const save = useSave("membros"); const del = useRemove("membros");
+  const [q, setQ] = useState(""); const [filtro, setFiltro] = useState<"todos" | "ativos" | "inativos">("ativos");
+  const [edit, setEdit] = useState<{ id?: string; v: typeof membroVazio } | null>(null);
+  const list = membros.filter((m) => (filtro === "todos" || (filtro === "ativos") === m.ativo) && `${m.nome} ${m.telefone} ${m.ministerio}`.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between"><h2 className="text-xl font-bold">Membros <span className="text-sm text-muted-foreground">({membros.length})</span></h2>
+        {staff && <Btn onClick={() => setEdit({ v: { ...membroVazio } })}><Plus className="h-4 w-4" />Adicionar</Btn>}
+      </div>
+      <div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><input className={`${inputCls} pl-9`} placeholder="Buscar nome, telefone ou ministério" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <div className="flex gap-2">{(["ativos", "inativos", "todos"] as const).map((f) => <button key={f} onClick={() => setFiltro(f)} className={`rounded-full px-3 py-1 text-xs capitalize ${filtro === f ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{f}</button>)}</div>
+      {isLoading ? <p className="text-sm text-muted-foreground">Carregando…</p> : !list.length && <Empty text="Nenhum membro encontrado." />}
+      <ul className="space-y-2">
+        {list.map((m) => (
+          <li key={m.id}><Card className="flex items-center gap-3 p-3">
+            <Avatar m={m} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold">{m.nome}</p>
+              <p className="truncate text-xs text-muted-foreground"><span className="text-primary">{CARGO_LABEL[m.cargo] ?? m.cargo}</span>{m.ministerio ? ` · ${m.ministerio}` : ""}{!m.ativo ? " · inativo" : ""}</p>
+            </div>
+            {staff && <button aria-label="Editar" onClick={() => setEdit({ id: m.id, v: { ...membroVazio, ...m, nascimento: m.nascimento ?? "" } })} className="p-2 text-muted-foreground"><Pencil className="h-4 w-4" /></button>}
+            <WaBtn phone={m.telefone} label={m.nome} />
+          </Card></li>
+        ))}
+      </ul>
+      {edit && (
+        <Modal title={edit.id ? "Editar membro" : "Adicionar membro"} onClose={() => setEdit(null)}>
+          <form className="space-y-3" onSubmit={(e) => {
+            e.preventDefault();
+            const v = { ...edit.v, nascimento: edit.v.nascimento || null };
+            save.mutate({ id: edit.id, values: v }, { onSuccess: () => setEdit(null) });
+          }}>
+            <div className="flex items-center gap-3">
+              <Avatar m={{ nome: edit.v.nome || "?", foto: edit.v.foto }} />
+              <label className="cursor-pointer text-sm text-primary">Escolher foto<input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setEdit({ ...edit, v: { ...edit.v, foto: await fotoParaDataUrl(f) } }); }} /></label>
+            </div>
+            <Field label="Nome"><input required className={inputCls} value={edit.v.nome} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, nome: e.target.value } })} /></Field>
+            <Field label="Telefone com DDD"><input required inputMode="tel" placeholder="(96) 99999-9999" className={inputCls} value={edit.v.telefone} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, telefone: e.target.value } })} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Cargo"><select className={inputCls} value={edit.v.cargo} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, cargo: e.target.value } })}>{CARGOS.map((c) => <option key={c} value={c}>{CARGO_LABEL[c]}</option>)}</select></Field>
+              <Field label="Nascimento"><input type="date" className={inputCls} value={edit.v.nascimento} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, nascimento: e.target.value } })} /></Field>
+            </div>
+            <Field label="Instrumento ou ministério"><input list="funcoes-m" className={inputCls} placeholder="Ex.: Bateria, Louvor, Recepção" value={edit.v.ministerio} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, ministerio: e.target.value } })} /><datalist id="funcoes-m">{FUNCOES.map((f) => <option key={f} value={f} />)}</datalist></Field>
+            <Field label="Endereço"><input className={inputCls} value={edit.v.endereco} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, endereco: e.target.value } })} /></Field>
+            <Field label="Observação"><textarea className={inputCls} value={edit.v.observacao} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, observacao: e.target.value } })} /></Field>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={edit.v.ativo} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, ativo: e.target.checked } })} />Ativo</label>
+            <div className="flex gap-2">
+              {edit.id && <Btn type="button" variant="danger" onClick={() => confirm("Apagar este membro? As escalas dele também serão apagadas.") && del.mutate(edit.id!, { onSuccess: () => setEdit(null) })}><Trash2 className="h-4 w-4" /></Btn>}
+              <Btn className="flex-1" disabled={save.isPending}><Save className="h-4 w-4" />Salvar</Btn>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Eventos ---------- */
+function EventosScreen({ staff }: { staff: boolean }) {
+  const { data: eventos = [] } = useRows<Evento>("eventos", "data");
+  const save = useSave("eventos"); const del = useRemove("eventos");
+  const [edit, setEdit] = useState<{ id?: string; v: { titulo: string; data: string; horario: string; local: string; descricao: string } } | null>(null);
+  const hoje = localDateKey(new Date());
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between"><h2 className="text-xl font-bold">Eventos</h2>
+        {staff && <Btn onClick={() => setEdit({ v: { titulo: "", data: hoje, horario: "19:00", local: "", descricao: "" } })}><Plus className="h-4 w-4" />Novo</Btn>}
+      </div>
+      {!eventos.length && <Empty text="Nenhum evento cadastrado." />}
+      {eventos.map((e) => (
+        <Card key={e.id} className={e.data < hoje ? "opacity-60" : ""}>
+          <div className="flex items-start justify-between gap-2">
+            <div><p className="font-bold text-primary">{e.titulo}</p><p className="text-sm">{dataBR(e.data)}{e.horario ? ` · ${e.horario}` : ""}{e.local ? ` · ${e.local}` : ""}</p>{e.descricao && <p className="mt-1 text-sm text-muted-foreground">{e.descricao}</p>}</div>
+            {staff && <div className="flex"><button aria-label="Editar" className="p-2" onClick={() => setEdit({ id: e.id, v: e })}><Pencil className="h-4 w-4" /></button><button aria-label="Apagar" className="p-2 text-destructive" onClick={() => confirm("Apagar evento?") && del.mutate(e.id)}><Trash2 className="h-4 w-4" /></button></div>}
+          </div>
+        </Card>
+      ))}
+      {edit && (
+        <Modal title={edit.id ? "Editar evento" : "Novo evento"} onClose={() => setEdit(null)}>
+          <form className="space-y-3" onSubmit={(ev) => { ev.preventDefault(); const { titulo, data, horario, local, descricao } = edit.v; save.mutate({ id: edit.id, values: { titulo, data, horario, local, descricao } }, { onSuccess: () => setEdit(null) }); }}>
+            <Field label="Título"><input required list="tipos-ev" className={inputCls} value={edit.v.titulo} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, titulo: e.target.value } })} /><datalist id="tipos-ev">{["Festividade", "Congresso", "Aniversário da Igreja", "Batismo", "Santa Ceia"].map((t) => <option key={t} value={t} />)}</datalist></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Data"><input type="date" required className={inputCls} value={edit.v.data} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, data: e.target.value } })} /></Field>
+              <Field label="Horário"><input type="time" className={inputCls} value={edit.v.horario} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, horario: e.target.value } })} /></Field>
+            </div>
+            <Field label="Local"><input className={inputCls} value={edit.v.local} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, local: e.target.value } })} /></Field>
+            <Field label="Descrição"><textarea className={inputCls} value={edit.v.descricao} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, descricao: e.target.value } })} /></Field>
+            <Btn className="w-full"><Save className="h-4 w-4" />Salvar</Btn>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Avisos ---------- */
+function AvisosScreen({ staff }: { staff: boolean }) {
+  const { data: avisos = [] } = useRows<Tables<"avisos">>("avisos", "created_at", false);
+  const save = useSave("avisos"); const del = useRemove("avisos");
+  const [texto, setTexto] = useState("");
+  const enviar = () => {
+    if (!texto.trim()) { toast.error("Escreva o aviso"); return; }
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
+    if (staff) save.mutate({ values: { texto } }, { onSuccess: () => setTexto("") });
+  };
+  return (
+    <div className="space-y-4">
+      <h2 className="text-xl font-bold">Avisos</h2>
+      <Card className="space-y-3">
+        <textarea rows={4} className={inputCls} placeholder="Escreva o aviso para o grupo…" value={texto} onChange={(e) => setTexto(e.target.value)} />
+        <Btn variant="whats" className="w-full py-4 text-base" onClick={enviar}><MessageCircle className="h-5 w-5" />Enviar Aviso no WhatsApp</Btn>
+        <p className="text-xs text-muted-foreground">O WhatsApp abre com o texto pronto; escolha o grupo.</p>
+      </Card>
+      {!avisos.length && <Empty text="Nenhum aviso enviado ainda." />}
+      {avisos.map((a) => (
+        <Card key={a.id} className="flex gap-2"><div className="flex-1"><p className="text-xs text-primary">{new Date(a.created_at).toLocaleString("pt-BR")}</p><p className="whitespace-pre-wrap text-sm">{a.texto}</p></div>
+          {staff && <button aria-label="Apagar" onClick={() => del.mutate(a.id)} className="p-1 text-destructive"><Trash2 className="h-4 w-4" /></button>}
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Aniversariantes ---------- */
+function AnivScreen() {
+  const { data: membros = [] } = useRows<Membro>("membros", "nome");
+  const [mes, setMes] = useState(new Date().getMonth() + 1);
+  const people = membros.filter((m) => m.ativo && m.nascimento).map((m) => ({ id: m.id, nome: m.nome, telefone: m.telefone, nascimento: m.nascimento ?? "" }));
+  const list = birthdaysInMonth(birthdaysFromPeople([], people, []), mes);
+  return (
+    <div className="space-y-4">
+      <h2 className="text-xl font-bold">Aniversariantes</h2>
+      <select className={inputCls} value={mes} onChange={(e) => setMes(Number(e.target.value))}>{MESES.map((m, i) => <option key={m} value={i + 1} className="capitalize">{m}</option>)}</select>
+      {!list.length && <Empty text="Ninguém faz aniversário neste mês (preencha o nascimento no cadastro do membro)." />}
+      {list.map((p) => (
+        <Card key={p.id} className="flex items-center gap-3 p-3">
+          <div className="flex h-12 w-12 flex-col items-center justify-center rounded-xl bg-hero text-primary-foreground"><span className="text-lg font-bold leading-none">{p.data.slice(8)}</span></div>
+          <p className="flex-1 font-semibold">{p.nome}</p>
+          <WaBtn phone={p.telefone} label={p.nome} msg={`Feliz aniversário, ${p.nome.split(" ")[0]}! Que Deus abençoe sua vida. 🎉`} />
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Dízimos / Ofertas ---------- */
+function FinanceiroScreen({ tipo, staff }: { tipo: "dizimos" | "ofertas"; staff: boolean }) {
+  const now = new Date();
+  const [ym, setYm] = useState({ a: now.getFullYear(), m: now.getMonth() + 1 });
+  const { data: rows = [] } = useRows<{ id: string; nome?: string; valor: number; data: string; obs: string }>(tipo, "data");
+  const { data: membros = [] } = useRows<Membro>("membros", "nome");
+  const save = useSave(tipo); const del = useRemove(tipo);
+  const [form, setForm] = useState<{ nome: string; valor: string; data: string; obs: string } | null>(null);
+  const { ini, fim } = monthRange(ym.a, ym.m);
+  const doMes = rows.filter((r) => r.data >= ini && r.data <= fim).map((r) => ({ ...r, valor: Number(r.valor) }));
+  const total = sumValues(doMes);
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between"><h2 className="text-xl font-bold">{tipo === "dizimos" ? "Dízimos" : "Ofertas"}</h2>
+        {staff && <Btn onClick={() => setForm({ nome: "", valor: "", data: localDateKey(now), obs: "" })}><Plus className="h-4 w-4" />Lançar</Btn>}
+      </div>
+      <MonthNav ano={ym.a} mes={ym.m} set={(a, m) => setYm({ a, m })} />
+      <div className="rounded-2xl bg-hero p-5 text-primary-foreground shadow-soft"><p className="text-sm">Total do mês</p><p className="text-3xl font-bold">{brl(total)}</p></div>
+      {!doMes.length && <Empty text="Nenhum lançamento neste mês." />}
+      {tipo === "dizimos"
+        ? totalsByPerson(doMes).map((p) => (
+          <Card key={p.nome}><div className="mb-2 flex justify-between font-semibold"><span>{p.nome}</span><span className="text-primary">{brl(p.total)}</span></div>
+            {p.itens.map((i) => <div key={i.id} className="flex items-center justify-between text-sm text-muted-foreground"><span>{dataBR(i.data)}</span><span className="flex items-center gap-2">{brl(i.valor)}{staff && <button aria-label="Apagar" onClick={() => del.mutate(i.id)} className="text-destructive"><Trash2 className="h-3 w-3" /></button>}</span></div>)}
+          </Card>))
+        : doMes.map((i) => (
+          <Card key={i.id} className="flex items-center justify-between p-3"><div><p className="font-semibold">{brl(i.valor)}</p><p className="text-xs text-muted-foreground">{dataBR(i.data)}{i.obs ? ` · ${i.obs}` : ""}</p></div>
+            {staff && <button aria-label="Apagar" onClick={() => del.mutate(i.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></button>}
+          </Card>))}
+      {form && (
+        <Modal title={tipo === "dizimos" ? "Lançar dízimo" : "Lançar oferta"} onClose={() => setForm(null)}>
+          <form className="space-y-3" onSubmit={(e) => {
+            e.preventDefault();
+            const valor = Number(form.valor.replace(",", "."));
+            if (!(valor > 0)) { toast.error("Valor inválido"); return; }
+            const values = tipo === "dizimos" ? { nome: form.nome, valor, data: form.data, obs: form.obs } : { valor, data: form.data, obs: form.obs };
+            save.mutate({ values }, { onSuccess: () => setForm(null) });
+          }}>
+            {tipo === "dizimos" && <Field label="Dizimista"><input required list="lista-membros" className={inputCls} value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /><datalist id="lista-membros">{membros.map((m) => <option key={m.id} value={m.nome} />)}</datalist></Field>}
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Valor (R$)"><input required inputMode="decimal" className={inputCls} value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })} /></Field>
+              <Field label="Data"><input type="date" required className={inputCls} value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} /></Field>
+            </div>
+            <Field label={tipo === "dizimos" ? "Observação" : "Culto / observação"}><input className={inputCls} value={form.obs} onChange={(e) => setForm({ ...form, obs: e.target.value })} /></Field>
+            <Btn className="w-full"><Save className="h-4 w-4" />Salvar</Btn>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Atas ---------- */
+type AtaForm = { id?: string; igreja: string; mes: number; ano: number; data_reuniao: string; horario: string; local: string; presidente: string; secretario: string; pauta: string; presentes: string; decisoes: string; texto_completo: string };
+
+function AtasScreen({ staff }: { staff: boolean }) {
+  const { data: atas = [] } = useRows<Ata>("atas", "criado_em", false);
+  const save = useSave("atas"); const del = useRemove("atas");
+  const [edit, setEdit] = useState<AtaForm | null>(null);
+  const [gerando, setGerando] = useState(false);
+  const now = new Date();
+  const novo = (): AtaForm => ({ igreja: localStorage.getItem("igreja-nome") || "Minha Igreja", mes: now.getMonth() + 1, ano: now.getFullYear(), data_reuniao: localDateKey(now), horario: "19:00", local: "", presidente: "", secretario: "", pauta: "", presentes: "", decisoes: "", texto_completo: "" });
+  const sorted = [...atas].sort((a, b) => b.ano - a.ano || b.mes - a.mes);
+
+  const gerar = async () => {
+    if (!edit) return;
+    setGerando(true);
+    try {
+      const { ini, fim } = monthRange(edit.ano, edit.mes);
+      const [esc, ev, mem, todos] = await Promise.all([
+        supabase.from("escalas").select("*").gte("data", ini).lte("data", fim),
+        supabase.from("eventos").select("*").gte("data", ini).lte("data", fim).order("data"),
+        supabase.from("membros").select("nome").gte("created_at", `${ini}T00:00:00`).lte("created_at", `${fim}T23:59:59`).order("nome"),
+        supabase.from("membros").select("id,nome"),
+      ]);
+      const err = esc.error || ev.error || mem.error || todos.error; if (err) throw err;
+      const nomes = new Map((todos.data ?? []).map((m) => [m.id, m.nome]));
+      const escalas = (esc.data ?? []).map((e) => ({ data: e.data, tipo_culto: e.tipo_culto, funcao: e.funcao, nome: nomes.get(e.membro_id) ?? "—", confirmado: e.confirmado }));
+      const presentesList = edit.presentes.trim()
+        ? edit.presentes.split(/[,\n]/).map((s) => s.trim()).filter(Boolean)
+        : [...new Set(escalas.map((e) => e.nome))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+      const texto = gerarTextoAta({
+        igreja: edit.igreja, mes: edit.mes, ano: edit.ano, dataReuniao: edit.data_reuniao, horario: edit.horario, local: edit.local,
+        presidente: edit.presidente, secretario: edit.secretario, pauta: edit.pauta, presentes: presentesList, decisoes: edit.decisoes,
+        escalas, eventos: ev.data ?? [], novosMembros: (mem.data ?? []).map((m) => m.nome),
+      });
+      setEdit({ ...edit, presentes: edit.presentes || presentesList.join(", "), texto_completo: texto });
+      toast.success("Ata gerada! Revise e edite o texto antes de salvar.");
+    } catch (e) { toast.error(errMsg(e)); }
+    setGerando(false);
+  };
+
+  const nomeArq = (a: { mes: number; ano: number }) => `ata-${String(a.mes).padStart(2, "0")}-${a.ano}`;
+  const enviar = async (a: { mes: number; ano: number; texto_completo: string }, canal: "whats" | "email") => {
+    const titulo = `Ata de ${MESES[a.mes - 1]} de ${a.ano}`;
+    const blob = ataPdf(a.texto_completo);
+    if (await compartilharPdf(blob, `${nomeArq(a)}.pdf`, titulo)) return;
+    baixar(blob, `${nomeArq(a)}.pdf`);
+    toast.info("PDF baixado. Anexe o arquivo na mensagem.");
+    if (canal === "whats") window.open(`https://wa.me/?text=${encodeURIComponent(`${titulo} – segue o PDF em anexo.`)}`, "_blank");
+    else window.location.href = `mailto:?subject=${encodeURIComponent(titulo)}&body=${encodeURIComponent(`Segue em anexo a ${titulo}.\n\n${a.texto_completo}`)}`;
+  };
+  const Acoes = ({ a }: { a: { mes: number; ano: number; texto_completo: string } }) => (
+    <div className="grid grid-cols-2 gap-2">
+      <Btn type="button" variant="ghost" onClick={() => baixar(ataPdf(a.texto_completo), `${nomeArq(a)}.pdf`)}><Download className="h-4 w-4" />Baixar PDF</Btn>
+      <Btn type="button" variant="ghost" onClick={() => baixar(ataDoc(a.texto_completo), `${nomeArq(a)}.doc`)}><Download className="h-4 w-4" />Baixar DOC</Btn>
+      <Btn type="button" variant="whats" onClick={() => enviar(a, "whats")}><MessageCircle className="h-4 w-4" />Enviar no WhatsApp</Btn>
+      <Btn type="button" variant="info" onClick={() => enviar(a, "email")}><Mail className="h-4 w-4" />Enviar por E-mail</Btn>
+    </div>
+  );
+
+  const set = (k: keyof AtaForm, v: string | number) => edit && setEdit({ ...edit, [k]: v });
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between"><h2 className="text-xl font-bold">Ata Mensal</h2>
+        {staff && <Btn onClick={() => setEdit(novo())}><Plus className="h-4 w-4" />Nova Ata</Btn>}
+      </div>
+      {!sorted.length && <Empty text="Nenhuma ata registrada." />}
+      {sorted.map((a) => (
+        <Card key={a.id} className="space-y-3">
+          <div className="flex items-start justify-between">
+            <div><p className="font-bold capitalize text-primary">{MESES[a.mes - 1]} de {a.ano}</p><p className="text-xs text-muted-foreground">{a.data_reuniao ? `Reunião em ${dataBR(a.data_reuniao)}` : ""}{a.presidente ? ` · Pres.: ${a.presidente}` : ""}</p></div>
+            {staff && <div className="flex">
+              <button aria-label="Editar" className="p-2" onClick={() => setEdit({ id: a.id, igreja: a.texto_completo.split("\n")[0] ?? "", mes: a.mes, ano: a.ano, data_reuniao: a.data_reuniao ?? "", horario: "", local: a.local, presidente: a.presidente, secretario: a.secretario, pauta: a.pauta, presentes: a.presentes, decisoes: a.decisoes, texto_completo: a.texto_completo })}><Pencil className="h-4 w-4" /></button>
+              <button aria-label="Apagar" className="p-2 text-destructive" onClick={() => confirm("Apagar esta ata?") && del.mutate(a.id)}><Trash2 className="h-4 w-4" /></button>
+            </div>}
+          </div>
+          {a.texto_completo && <Acoes a={a} />}
+        </Card>
+      ))}
+      {edit && (
+        <Modal title={edit.id ? "Editar ata" : "Nova ata"} onClose={() => setEdit(null)}>
+          <form className="space-y-3" onSubmit={(e) => {
+            e.preventDefault();
+            if (!edit.texto_completo.trim()) { toast.error("Gere ou escreva o texto da ata"); return; }
+            localStorage.setItem("igreja-nome", edit.igreja);
+            const { id, igreja: _i, horario: _h, ...values } = edit;
+            save.mutate({ id, values: { ...values, data_reuniao: values.data_reuniao || null } }, { onSuccess: () => setEdit(null) });
+          }}>
+            <Field label="Nome da igreja"><input required className={inputCls} value={edit.igreja} onChange={(e) => set("igreja", e.target.value)} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Mês"><select className={inputCls} value={edit.mes} onChange={(e) => set("mes", Number(e.target.value))}>{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></Field>
+              <Field label="Ano"><input type="number" className={inputCls} value={edit.ano} onChange={(e) => set("ano", Number(e.target.value))} /></Field>
+              <Field label="Data da reunião"><input type="date" className={inputCls} value={edit.data_reuniao} onChange={(e) => set("data_reuniao", e.target.value)} /></Field>
+              <Field label="Horário"><input type="time" className={inputCls} value={edit.horario} onChange={(e) => set("horario", e.target.value)} /></Field>
+            </div>
+            <Field label="Local"><input className={inputCls} placeholder="Templo sede, endereço" value={edit.local} onChange={(e) => set("local", e.target.value)} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Presidente"><input className={inputCls} value={edit.presidente} onChange={(e) => set("presidente", e.target.value)} /></Field>
+              <Field label="Secretário(a)"><input className={inputCls} value={edit.secretario} onChange={(e) => set("secretario", e.target.value)} /></Field>
+            </div>
+            <Field label="Pauta"><textarea className={inputCls} placeholder="Deixe vazio para usar a pauta padrão" value={edit.pauta} onChange={(e) => set("pauta", e.target.value)} /></Field>
+            <Field label="Presentes (separados por vírgula)"><textarea className={inputCls} placeholder="Vazio = pessoas que estavam na escala do mês" value={edit.presentes} onChange={(e) => set("presentes", e.target.value)} /></Field>
+            <Field label="Decisões"><textarea className={inputCls} value={edit.decisoes} onChange={(e) => set("decisoes", e.target.value)} /></Field>
+            <Btn type="button" className="w-full" disabled={gerando} onClick={gerar}><Sparkles className="h-4 w-4" />{gerando ? "Gerando…" : "Gerar Ata Automática do Mês"}</Btn>
+            <Field label="Texto completo da ata (pode editar)"><textarea rows={16} className={`${inputCls} font-serif leading-relaxed`} value={edit.texto_completo} onChange={(e) => set("texto_completo", e.target.value)} /></Field>
+            {edit.texto_completo && <Acoes a={edit} />}
+            <Btn className="w-full" disabled={save.isPending}><Save className="h-4 w-4" />Salvar ata</Btn>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Admin ---------- */
+function AdminScreen() {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["contas"],
+    queryFn: async () => {
+      const [p, r] = await Promise.all([supabase.from("profiles").select("*").order("nome"), supabase.from("user_roles").select("*")]);
+      if (p.error) throw p.error; if (r.error) throw r.error;
+      return (p.data ?? []).map((u) => ({ ...u, roles: (r.data ?? []).filter((x) => x.user_id === u.id).map((x) => x.role) }));
+    },
+  });
+  const setRole = useMutation({
+    mutationFn: async ({ id, role }: { id: string; role: "admin" | "pastor" | "lider" | "membro" }) => {
+      const d = await supabase.from("user_roles").delete().eq("user_id", id); if (d.error) throw d.error;
+      const i = await supabase.from("user_roles").insert({ user_id: id, role }); if (i.error) throw i.error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["contas"] }); toast.success("Acesso atualizado"); },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  return (
+    <div className="space-y-4">
+      <h2 className="text-xl font-bold">Admin · Contas</h2>
+      <p className="text-sm text-muted-foreground">Só <b>Pastor</b> e <b>Admin</b> podem criar e editar escalas, membros, eventos, atas e finanças.</p>
+      {(data ?? []).map((u) => (
+        <Card key={u.id} className="flex items-center gap-3 p-3">
+          <div className="min-w-0 flex-1"><p className="truncate font-semibold">{u.nome || "(sem nome)"}</p><p className="text-xs text-muted-foreground">{u.telefone}</p></div>
+          <select className="rounded-lg border border-input bg-background px-2 py-1 text-sm" value={u.roles[0] ?? "membro"} onChange={(e) => setRole.mutate({ id: u.id, role: e.target.value as "membro" })}>
+            {CARGOS.map((c) => <option key={c} value={c}>{CARGO_LABEL[c]}</option>)}
+          </select>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- App ---------- */
+export function IgrejaApp() {
+  const qc = useQueryClient();
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [screen, setScreen] = useState<Screen>("home");
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data } = supabase.auth.onAuthStateChange((ev, s) => {
+      setSession(s);
+      if (ev === "SIGNED_IN" || ev === "USER_UPDATED") qc.invalidateQueries();
+    });
+    return () => data.subscription.unsubscribe();
+  }, [qc]);
+  const uid = session?.user.id;
+  const { data: me } = useQuery({
+    queryKey: ["me", uid], enabled: !!uid,
+    queryFn: async () => {
+      const [p, r] = await Promise.all([supabase.from("profiles").select("nome").eq("id", uid!).maybeSingle(), supabase.from("user_roles").select("role").eq("user_id", uid!)]);
+      return { nome: p.data?.nome ?? "", roles: (r.data ?? []).map((x) => x.role) };
+    },
+  });
+  const admin = !!me?.roles.includes("admin");
+  const staff = admin || !!me?.roles.includes("pastor");
+  const sair = async () => { await qc.cancelQueries(); qc.clear(); await supabase.auth.signOut(); setScreen("home"); };
+
+  if (session === undefined) return <div className="min-h-screen bg-background" />;
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <Toaster theme="dark" position="top-center" richColors />
+      {!session ? <Auth /> : (
+        <div className="mx-auto max-w-lg px-4 pb-16 pt-[max(env(safe-area-inset-top),1rem)]">
+          <div className="mb-4 flex items-center justify-between">
+            {screen !== "home"
+              ? <button onClick={() => setScreen("home")} className="flex items-center gap-1 text-sm text-primary"><ArrowLeft className="h-4 w-4" />Início</button>
+              : <span className="text-xs uppercase tracking-widest text-muted-foreground">{APP_NAME}</span>}
+            <button onClick={sair} className="flex items-center gap-1 text-sm text-muted-foreground"><LogOut className="h-4 w-4" />Sair</button>
+          </div>
+          {screen === "home" && <Home go={setScreen} nome={me?.nome ?? ""} staff={staff} admin={admin} />}
+          {screen === "escala" && <EscalaScreen staff={staff} />}
+          {screen === "membros" && <MembrosScreen staff={staff} />}
+          {screen === "eventos" && <EventosScreen staff={staff} />}
+          {screen === "avisos" && <AvisosScreen staff={staff} />}
+          {screen === "atas" && <AtasScreen staff={staff} />}
+          {screen === "aniv" && <AnivScreen />}
+          {screen === "dizimos" && <FinanceiroScreen tipo="dizimos" staff={staff} />}
+          {screen === "ofertas" && <FinanceiroScreen tipo="ofertas" staff={staff} />}
+          {screen === "admin" && admin && <AdminScreen />}
+        </div>
+      )}
+    </div>
+  );
+}
