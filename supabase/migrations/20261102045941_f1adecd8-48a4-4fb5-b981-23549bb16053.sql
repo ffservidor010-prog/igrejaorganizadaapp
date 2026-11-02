@@ -1,0 +1,58 @@
+CREATE TABLE public.cultos (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), igreja_id uuid NOT NULL DEFAULT public.minha_igreja() REFERENCES public.igrejas(id), nome text NOT NULL, tipo text NOT NULL DEFAULT 'semanal', dia_semana integer, data_unica date, horario text NOT NULL DEFAULT '', created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE (id, igreja_id));
+GRANT SELECT,INSERT,UPDATE,DELETE ON public.cultos TO authenticated; GRANT ALL ON public.cultos TO service_role;
+ALTER TABLE public.cultos ENABLE ROW LEVEL SECURITY;
+CREATE POLICY cultos_read ON public.cultos FOR SELECT TO authenticated USING (igreja_id=public.minha_igreja());
+CREATE POLICY cultos_write ON public.cultos FOR ALL TO authenticated USING (igreja_id=public.minha_igreja() AND public.is_igreja_admin(auth.uid())) WITH CHECK (igreja_id=public.minha_igreja() AND public.is_igreja_admin(auth.uid()));
+CREATE TABLE public.setores (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), igreja_id uuid NOT NULL DEFAULT public.minha_igreja() REFERENCES public.igrejas(id), nome text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE (id,igreja_id), UNIQUE(igreja_id,nome));
+GRANT SELECT,INSERT,UPDATE,DELETE ON public.setores TO authenticated; GRANT ALL ON public.setores TO service_role;
+ALTER TABLE public.setores ENABLE ROW LEVEL SECURITY;
+CREATE POLICY setores_read ON public.setores FOR SELECT TO authenticated USING (igreja_id=public.minha_igreja());
+CREATE POLICY setores_write ON public.setores FOR ALL TO authenticated USING (igreja_id=public.minha_igreja() AND public.is_staff(auth.uid())) WITH CHECK (igreja_id=public.minha_igreja() AND public.is_staff(auth.uid()));
+CREATE TABLE public.visitantes (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), igreja_id uuid NOT NULL DEFAULT public.minha_igreja() REFERENCES public.igrejas(id), nome text NOT NULL, telefone text NOT NULL DEFAULT '', data_visita date NOT NULL DEFAULT current_date, convidado_por text NOT NULL DEFAULT '', membro_id uuid, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+GRANT SELECT,INSERT,UPDATE,DELETE ON public.visitantes TO authenticated; GRANT ALL ON public.visitantes TO service_role;
+ALTER TABLE public.visitantes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY visitantes_staff ON public.visitantes FOR ALL TO authenticated USING (igreja_id=public.minha_igreja() AND public.is_staff(auth.uid())) WITH CHECK (igreja_id=public.minha_igreja() AND public.is_staff(auth.uid()));
+CREATE TABLE public.pedidos_oracao (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), igreja_id uuid NOT NULL DEFAULT public.minha_igreja() REFERENCES public.igrejas(id), nome text NOT NULL, pedido text NOT NULL DEFAULT '', data date NOT NULL DEFAULT current_date, status text NOT NULL DEFAULT 'pendente', orado_em timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+GRANT SELECT,INSERT,UPDATE,DELETE ON public.pedidos_oracao TO authenticated; GRANT ALL ON public.pedidos_oracao TO service_role;
+ALTER TABLE public.pedidos_oracao ENABLE ROW LEVEL SECURITY;
+CREATE POLICY oracao_staff ON public.pedidos_oracao FOR ALL TO authenticated USING (igreja_id=public.minha_igreja() AND public.is_staff(auth.uid())) WITH CHECK (igreja_id=public.minha_igreja() AND public.is_staff(auth.uid()));
+ALTER TABLE public.membros ADD CONSTRAINT membros_id_igreja_unique UNIQUE(id,igreja_id);
+ALTER TABLE public.visitantes ADD CONSTRAINT visitantes_membro_igreja FOREIGN KEY(membro_id,igreja_id) REFERENCES public.membros(id,igreja_id) ON DELETE SET NULL (membro_id);
+ALTER TABLE public.escalas ADD COLUMN culto_id uuid, ADD COLUMN setor_id uuid;
+ALTER TABLE public.escalas ADD CONSTRAINT escalas_culto_igreja FOREIGN KEY(culto_id,igreja_id) REFERENCES public.cultos(id,igreja_id) ON DELETE SET NULL (culto_id), ADD CONSTRAINT escalas_setor_igreja FOREIGN KEY(setor_id,igreja_id) REFERENCES public.setores(id,igreja_id) ON DELETE SET NULL (setor_id);
+ALTER TABLE public.eventos ADD COLUMN culto_id uuid;
+ALTER TABLE public.eventos ADD CONSTRAINT eventos_culto_igreja FOREIGN KEY(culto_id,igreja_id) REFERENCES public.cultos(id,igreja_id) ON DELETE SET NULL (culto_id);
+ALTER TABLE public.dizimos ADD COLUMN membro_id uuid;
+ALTER TABLE public.dizimos ADD CONSTRAINT dizimos_membro_igreja FOREIGN KEY(membro_id,igreja_id) REFERENCES public.membros(id,igreja_id) ON DELETE SET NULL (membro_id);
+CREATE OR REPLACE FUNCTION public.validar_administracao() RETURNS trigger LANGUAGE plpgsql SET search_path=public AS $$ BEGIN
+ NEW.updated_at:=now();
+ IF length(trim(NEW.nome))=0 THEN RAISE EXCEPTION 'Informe o nome'; END IF;
+ IF TG_TABLE_NAME='cultos' THEN
+  IF NEW.tipo NOT IN ('semanal','unico') OR (NEW.tipo='semanal' AND (NEW.dia_semana IS NULL OR NEW.dia_semana<0 OR NEW.dia_semana>6)) OR (NEW.tipo='unico' AND NEW.data_unica IS NULL) THEN RAISE EXCEPTION 'Informe dia da semana ou data única'; END IF;
+ ELSIF TG_TABLE_NAME='pedidos_oracao' THEN
+  IF NEW.status NOT IN ('pendente','orado') THEN RAISE EXCEPTION 'Status inválido'; END IF;
+  NEW.orado_em:=CASE WHEN NEW.status='orado' THEN coalesce(NEW.orado_em,now()) ELSE NULL END;
+ END IF;
+ RETURN NEW;
+END $$;
+CREATE TRIGGER validar_cultos BEFORE INSERT OR UPDATE ON public.cultos FOR EACH ROW EXECUTE FUNCTION public.validar_administracao();
+CREATE TRIGGER validar_setores BEFORE INSERT OR UPDATE ON public.setores FOR EACH ROW EXECUTE FUNCTION public.validar_administracao();
+CREATE TRIGGER validar_visitantes BEFORE INSERT OR UPDATE ON public.visitantes FOR EACH ROW EXECUTE FUNCTION public.validar_administracao();
+CREATE TRIGGER validar_oracao BEFORE INSERT OR UPDATE ON public.pedidos_oracao FOR EACH ROW EXECUTE FUNCTION public.validar_administracao();
+REVOKE ALL ON FUNCTION public.validar_administracao() FROM PUBLIC,anon,authenticated;
+CREATE OR REPLACE FUNCTION public.converter_visitante(_visitante_id uuid) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ DECLARE v public.visitantes; m uuid; BEGIN
+ IF auth.uid() IS NULL OR NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION 'Apenas pastor/ADM'; END IF;
+ SELECT * INTO v FROM public.visitantes WHERE id=_visitante_id AND igreja_id=public.minha_igreja() FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Visitante não encontrado nesta igreja'; END IF;
+ IF v.membro_id IS NOT NULL THEN RETURN v.membro_id; END IF;
+ INSERT INTO public.membros(nome,telefone,cargo,igreja_id) VALUES(v.nome,v.telefone,'membro',v.igreja_id) RETURNING id INTO m;
+ UPDATE public.visitantes SET membro_id=m WHERE id=v.id;
+ RETURN m;
+END $$;
+REVOKE ALL ON FUNCTION public.converter_visitante(uuid) FROM PUBLIC,anon; GRANT EXECUTE ON FUNCTION public.converter_visitante(uuid) TO authenticated;
+INSERT INTO public.cultos(igreja_id,nome,tipo,dia_semana,horario) SELECT g.id,v.nome,'semanal',v.dia,v.horario FROM public.igrejas g CROSS JOIN (VALUES ('Domingo Manhã',0,'09:00'),('Domingo Noite',0,'18:00'),('Quarta',3,'19:00'),('Ensaio',6,'19:00')) v(nome,dia,horario);
+INSERT INTO public.cultos(igreja_id,nome,tipo,dia_semana,horario) SELECT DISTINCT e.igreja_id,e.tipo_culto,'semanal',extract(dow from e.data)::integer,'' FROM public.escalas e WHERE NOT EXISTS(SELECT 1 FROM public.cultos c WHERE c.igreja_id=e.igreja_id AND c.nome=e.tipo_culto);
+INSERT INTO public.setores(igreja_id,nome) SELECT g.id,v.nome FROM public.igrejas g CROSS JOIN (VALUES ('Louvor'),('Bateria'),('Teclado'),('Violão'),('Baixo'),('Som'),('Mídia'),('Recepção'),('Diaconia'),('Infantil'),('Diaconato'),('Jovens')) v(nome);
+INSERT INTO public.setores(igreja_id,nome) SELECT DISTINCT igreja_id,funcao FROM public.escalas WHERE trim(funcao)<>'' ON CONFLICT(igreja_id,nome) DO NOTHING;
+UPDATE public.escalas e SET culto_id=(SELECT c.id FROM public.cultos c WHERE c.igreja_id=e.igreja_id AND c.nome=e.tipo_culto LIMIT 1),setor_id=(SELECT s.id FROM public.setores s WHERE s.igreja_id=e.igreja_id AND s.nome=e.funcao LIMIT 1);
+UPDATE public.dizimos d SET membro_id=(SELECT m.id FROM public.membros m WHERE m.igreja_id=d.igreja_id AND lower(trim(m.nome))=lower(trim(d.nome)) LIMIT 1) WHERE (SELECT count(*) FROM public.membros m WHERE m.igreja_id=d.igreja_id AND lower(trim(m.nome))=lower(trim(d.nome)))=1;

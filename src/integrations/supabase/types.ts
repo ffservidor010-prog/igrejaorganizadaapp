@@ -99,12 +99,57 @@ export type Database = {
           },
         ]
       }
+      cultos: {
+        Row: {
+          created_at: string
+          data_unica: string | null
+          dia_semana: number | null
+          horario: string
+          id: string
+          igreja_id: string
+          nome: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_unica?: string | null
+          dia_semana?: number | null
+          horario?: string
+          id?: string
+          igreja_id?: string
+          nome: string
+          tipo?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_unica?: string | null
+          dia_semana?: number | null
+          horario?: string
+          id?: string
+          igreja_id?: string
+          nome?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cultos_igreja_id_fkey"
+            columns: ["igreja_id"]
+            isOneToOne: false
+            referencedRelation: "igrejas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dizimos: {
         Row: {
           created_at: string
           data: string
           id: string
           igreja_id: string
+          membro_id: string | null
           nome: string
           obs: string
           valor: number
@@ -114,6 +159,7 @@ export type Database = {
           data: string
           id?: string
           igreja_id?: string
+          membro_id?: string | null
           nome: string
           obs?: string
           valor: number
@@ -123,6 +169,7 @@ export type Database = {
           data?: string
           id?: string
           igreja_id?: string
+          membro_id?: string | null
           nome?: string
           obs?: string
           valor?: number
@@ -135,40 +182,60 @@ export type Database = {
             referencedRelation: "igrejas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "dizimos_membro_igreja"
+            columns: ["membro_id", "igreja_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id", "igreja_id"]
+          },
         ]
       }
       escalas: {
         Row: {
           confirmado: boolean
           created_at: string
+          culto_id: string | null
           data: string
           funcao: string
           id: string
           igreja_id: string
           membro_id: string
+          setor_id: string | null
           tipo_culto: string
         }
         Insert: {
           confirmado?: boolean
           created_at?: string
+          culto_id?: string | null
           data: string
           funcao: string
           id?: string
           igreja_id?: string
           membro_id: string
+          setor_id?: string | null
           tipo_culto: string
         }
         Update: {
           confirmado?: boolean
           created_at?: string
+          culto_id?: string | null
           data?: string
           funcao?: string
           id?: string
           igreja_id?: string
           membro_id?: string
+          setor_id?: string | null
           tipo_culto?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "escalas_culto_igreja"
+            columns: ["culto_id", "igreja_id"]
+            isOneToOne: false
+            referencedRelation: "cultos"
+            referencedColumns: ["id", "igreja_id"]
+          },
           {
             foreignKeyName: "escalas_igreja_id_fkey"
             columns: ["igreja_id"]
@@ -183,11 +250,19 @@ export type Database = {
             referencedRelation: "membros"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "escalas_setor_igreja"
+            columns: ["setor_id", "igreja_id"]
+            isOneToOne: false
+            referencedRelation: "setores"
+            referencedColumns: ["id", "igreja_id"]
+          },
         ]
       }
       eventos: {
         Row: {
           created_at: string
+          culto_id: string | null
           data: string
           descricao: string
           horario: string
@@ -198,6 +273,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          culto_id?: string | null
           data: string
           descricao?: string
           horario?: string
@@ -208,6 +284,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          culto_id?: string | null
           data?: string
           descricao?: string
           horario?: string
@@ -217,6 +294,13 @@ export type Database = {
           titulo?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "eventos_culto_igreja"
+            columns: ["culto_id", "igreja_id"]
+            isOneToOne: false
+            referencedRelation: "cultos"
+            referencedColumns: ["id", "igreja_id"]
+          },
           {
             foreignKeyName: "eventos_igreja_id_fkey"
             columns: ["igreja_id"]
@@ -338,6 +422,50 @@ export type Database = {
           },
         ]
       }
+      pedidos_oracao: {
+        Row: {
+          created_at: string
+          data: string
+          id: string
+          igreja_id: string
+          nome: string
+          orado_em: string | null
+          pedido: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          id?: string
+          igreja_id?: string
+          nome: string
+          orado_em?: string | null
+          pedido?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          id?: string
+          igreja_id?: string
+          nome?: string
+          orado_em?: string | null
+          pedido?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedidos_oracao_igreja_id_fkey"
+            columns: ["igreja_id"]
+            isOneToOne: false
+            referencedRelation: "igrejas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -370,6 +498,38 @@ export type Database = {
           },
         ]
       }
+      setores: {
+        Row: {
+          created_at: string
+          id: string
+          igreja_id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          igreja_id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          igreja_id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "setores_igreja_id_fkey"
+            columns: ["igreja_id"]
+            isOneToOne: false
+            referencedRelation: "igrejas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -388,11 +548,63 @@ export type Database = {
         }
         Relationships: []
       }
+      visitantes: {
+        Row: {
+          convidado_por: string
+          created_at: string
+          data_visita: string
+          id: string
+          igreja_id: string
+          membro_id: string | null
+          nome: string
+          telefone: string
+          updated_at: string
+        }
+        Insert: {
+          convidado_por?: string
+          created_at?: string
+          data_visita?: string
+          id?: string
+          igreja_id?: string
+          membro_id?: string | null
+          nome: string
+          telefone?: string
+          updated_at?: string
+        }
+        Update: {
+          convidado_por?: string
+          created_at?: string
+          data_visita?: string
+          id?: string
+          igreja_id?: string
+          membro_id?: string | null
+          nome?: string
+          telefone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitantes_igreja_id_fkey"
+            columns: ["igreja_id"]
+            isOneToOne: false
+            referencedRelation: "igrejas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitantes_membro_igreja"
+            columns: ["membro_id", "igreja_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id", "igreja_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      converter_visitante: { Args: { _visitante_id: string }; Returns: string }
       criar_igreja: { Args: { _nome: string }; Returns: string }
       definir_papel: {
         Args: {
