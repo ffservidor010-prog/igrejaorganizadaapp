@@ -1,0 +1,1 @@
+ALTER FUNCTION public.converter_visitante(uuid) SECURITY INVOKER;
