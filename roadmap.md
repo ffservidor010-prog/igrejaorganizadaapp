@@ -4,9 +4,10 @@
 - [x] Escala com WhatsApp por pessoa; membros com foto e WhatsApp.
 - [x] Acesso só pastor/admin para editar; tela Admin.
 - [x] Ata mensal automática, editável, PDF/DOC, WhatsApp/e-mail.
-- [ ] Relatório mensal de dízimos por membro, totais e pendências.
-- [ ] Visitantes e conversão segura em membro.
-- [ ] Cultos configuráveis por igreja nas escalas e eventos.
-- [ ] Setores configuráveis e WhatsApp da escala completa.
-- [ ] Pedidos de oração ADM/pastor, com status Orado.
-- [ ] Validar regras, isolamento de igrejas e telas disponíveis.
+- [x] Relatório mensal de dízimos por membro, totais e pendências.
+- [x] Visitantes e conversão segura em membro.
+- [x] Cultos configuráveis por igreja nas escalas e eventos.
+- [x] Setores configuráveis e WhatsApp da escala completa.
+- [x] Pedidos de oração ADM/pastor, com status Orado.
+- [x] Validar regras com testes, políticas de isolamento e tela pública.
+- [ ] Verificar cadastros e conversão pela interface autenticada — bloqueado: Supabase externo sem sessão de teste disponível.

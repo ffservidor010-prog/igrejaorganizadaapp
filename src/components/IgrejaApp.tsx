@@ -181,9 +181,9 @@ function EscalaScreen({ staff, admin }: { staff: boolean; admin: boolean }) {
   const doMes = escalas.filter((e) => e.data >= ini && e.data <= fim);
   const grupos = useMemo(() => {
     const g = new Map<string, Escala[]>();
-    for (const e of doMes) { const k = `${e.data}|${e.tipo_culto}`; g.set(k, [...(g.get(k) ?? []), e]); }
+    for (const e of doMes) { const nomeCulto = cultos.find(c => c.id === e.culto_id)?.nome ?? e.tipo_culto; const k = `${e.data}|${nomeCulto}`; g.set(k, [...(g.get(k) ?? []), e]); }
     return [...g.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [doMes]);
+  }, [doMes, cultos]);
   const hoje = localDateKey(now);
   return (
     <div className="space-y-4">
@@ -196,8 +196,8 @@ function EscalaScreen({ staff, admin }: { staff: boolean; admin: boolean }) {
       {grupos.map(([k, itens]) => {
         const [data, tipo] = k.split("|");
         return (
-          <Card key={k} className={data! < hoje ? "opacity-70" : ""}>
-            <div className="mb-3 flex items-baseline justify-between"><span className="font-bold text-primary">{dataBR(data!)}</span><span className="text-sm text-muted-foreground">{tipo}</span></div>
+          <Card key={k} className={(data ?? "") < hoje ? "opacity-70" : ""}>
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2"><span className="font-bold text-primary">{dataBR(data ?? "")}</span><span className="break-words text-sm text-muted-foreground">{tipo}</span></div>
             <ul className="space-y-2">
               {itens.map((e) => {
                 const m = byId.get(e.membro_id);
@@ -208,9 +208,9 @@ function EscalaScreen({ staff, admin }: { staff: boolean; admin: boolean }) {
                       <p className="text-xs text-muted-foreground">{setores.find(s => s.id === e.setor_id)?.nome ?? e.funcao} · {e.confirmado ? <span className="text-success">confirmado</span> : "aguardando"}</p>
                     </div>
                     {staff && <button aria-label="Confirmar" onClick={() => save.mutate({ id: e.id, values: { confirmado: !e.confirmado } })} className={`rounded-full p-2 ${e.confirmado ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"}`}><Check className="h-4 w-4" /></button>}
-                    {staff && <Btn variant="ghost" aria-label="Editar escala" onClick={() => setForm({ id: e.id, data: e.data, tipo_culto: e.tipo_culto, funcao: e.funcao, membro_id: e.membro_id, culto_id: e.culto_id ?? "", setor_id: e.setor_id ?? "" })}><Pencil className="h-4 w-4" /></Btn>}
+                    {staff && <Btn variant="ghost" className="h-8 w-8 shrink-0 p-0" aria-label="Editar escala" onClick={() => setForm({ id: e.id, data: e.data, tipo_culto: e.tipo_culto, funcao: e.funcao, membro_id: e.membro_id, culto_id: e.culto_id ?? "", setor_id: e.setor_id ?? "" })}><Pencil className="h-4 w-4" /></Btn>}
                     {staff && <button aria-label="Remover" onClick={() => confirm("Remover da escala?") && del.mutate(e.id)} className="p-2 text-destructive"><Trash2 className="h-4 w-4" /></button>}
-                    {m && <WaBtn phone={m.telefone} label={m.nome} msg={escalaMensagem(m.nome, e.funcao, e.data)} />}
+                    {m && <WaBtn phone={m.telefone} label={m.nome} msg={escalaMensagem(m.nome, setores.find(s => s.id === e.setor_id)?.nome ?? e.funcao, e.data)} />}
                   </li>
                 );
               })}
@@ -240,7 +240,7 @@ function EscalaScreen({ staff, admin }: { staff: boolean; admin: boolean }) {
 async function fotoParaDataUrl(file: File) {
   const img = await createImageBitmap(file);
   const s = 256; const c = document.createElement("canvas"); c.width = s; c.height = s;
-  const ctx = c.getContext("2d")!; const r = Math.max(s / img.width, s / img.height);
+  const ctx = c.getContext("2d"); if (!ctx) throw new Error("Não foi possível carregar a foto"); const r = Math.max(s / img.width, s / img.height);
   ctx.drawImage(img, (s - img.width * r) / 2, (s - img.height * r) / 2, img.width * r, img.height * r);
   return c.toDataURL("image/jpeg", 0.8);
 }
@@ -400,8 +400,8 @@ function AnivScreen() {
 function FinanceiroScreen({ tipo, staff }: { tipo: "dizimos" | "ofertas"; staff: boolean }) {
   const now = new Date();
   const [ym, setYm] = useState({ a: now.getFullYear(), m: now.getMonth() + 1 });
-  const { data: rows = [] } = useRows<{ id: string; nome?: string; membro_id?: string | null; valor: number; data: string; obs: string }>(tipo, "data");
-  const { data: membros = [] } = useRows<Membro>("membros", "nome");
+  const { data: rows = [], isPending: rowsPending, error: rowsError } = useRows<{ id: string; nome?: string; membro_id?: string | null; valor: number; data: string; obs: string }>(tipo, "data");
+  const { data: membros = [], isPending: membrosPending, error: membrosError } = useRows<Membro>("membros", "nome");
   const save = useSave(tipo); const del = useRemove(tipo);
   const [form, setForm] = useState<{ nome: string; membro_id: string; valor: string; data: string; obs: string } | null>(null);
   const { ini, fim } = monthRange(ym.a, ym.m);
@@ -409,6 +409,8 @@ function FinanceiroScreen({ tipo, staff }: { tipo: "dizimos" | "ofertas"; staff:
   const total = sumValues(doMes);
   const [report, setReport] = useState(false);
   const relatorio = relatorioDizimos(membros, rows, ym.a, ym.m);
+  if (rowsPending || membrosPending) return <p className="text-muted-foreground">Carregando…</p>;
+  if (rowsError || membrosError) return <p role="alert" className="text-destructive">Não foi possível carregar os dados. {rowsError?.message ?? membrosError?.message}</p>;
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><h2 className="text-xl font-bold">{tipo === "dizimos" ? "Dízimos" : "Ofertas"}</h2>
@@ -634,6 +636,7 @@ export function IgrejaApp() {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data } = supabase.auth.onAuthStateChange((ev, s) => {
       setSession(s);
+      if (ev === "SIGNED_OUT") { qc.clear(); setScreen("home"); }
       if (ev === "SIGNED_IN" || ev === "USER_UPDATED") qc.invalidateQueries();
     });
     return () => data.subscription.unsubscribe();
@@ -642,7 +645,8 @@ export function IgrejaApp() {
   const { data: me, isLoading: meLoading, refetch: refetchMe } = useQuery({
     queryKey: ["me", uid], enabled: !!uid,
     queryFn: async () => {
-      const [p, r] = await Promise.all([supabase.from("profiles").select("nome, igreja_id, igrejas(nome)").eq("id", uid!).maybeSingle(), supabase.from("user_roles").select("role").eq("user_id", uid!)]);
+      if (!uid) throw new Error("Entre na sua conta");
+      const [p, r] = await Promise.all([supabase.from("profiles").select("nome, igreja_id, igrejas(nome)").eq("id", uid).maybeSingle(), supabase.from("user_roles").select("role").eq("user_id", uid)]);
       if (p.error) throw p.error;
       const ig = p.data?.igrejas as { nome: string } | null | undefined;
       return { nome: p.data?.nome ?? "", igrejaId: p.data?.igreja_id ?? null, igreja: ig?.nome ?? "", roles: (r.data ?? []).map((x) => x.role) };
