@@ -14,3 +14,8 @@
 - Dízimos/ofertas are admin-only (`is_igreja_admin`); other content is editable by admin/pastor (`is_staff`).
 - Birthdays are derived from `membros.nascimento` through browser-safe helpers; never store copied birthday rows.
 - Ata text and WhatsApp messages are built by pure helpers in `src/lib/igreja.ts` (tested); PDF/DOC export stays client-side in `src/lib/ata-export.ts`.
+- CRUD lists/mutations use authenticated server functions in `src/lib/administracao.functions.ts`, explicit tenant filtering and RLS; list reads paginate to avoid truncated reports.
+- Shared existing church UI lives in `src/components/igreja-ui.tsx`; additional administration screens reuse it to preserve the theme.
+- Cultos/setores are tenant-owned catalogues referenced by composite tenant foreign keys; historical schedule/event text remains when catalogue entries are deleted.
+- Tithes link to member IDs; legacy name matching is allowed only for unique names, preventing ambiguous attribution.
+- Visitor conversion uses a row-locked SECURITY INVOKER RPC to ensure atomic, idempotent conversion under the caller's RLS permissions.
