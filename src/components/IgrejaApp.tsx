@@ -19,99 +19,11 @@ type Membro = Tables<"membros">;
 type Escala = Tables<"escalas">;
 type Evento = Tables<"eventos">;
 type Ata = Tables<"atas">;
-type Screen = "home" | "escala" | "membros" | "eventos" | "avisos" | "atas" | "aniv" | "dizimos" | "ofertas" | "admin";
-type TableName = "membros" | "escalas" | "eventos" | "atas" | "dizimos" | "ofertas" | "avisos";
-
-const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const errMsg = (e: unknown) => (e instanceof Error ? e.message : (e as { message?: string })?.message ?? "Erro");
-
-/* ---------- UI básicos ---------- */
-function Btn({ children, variant = "primary", className = "", ...p }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" | "danger" | "whats" | "info" }) {
-  const v = {
-    primary: "bg-hero text-primary-foreground shadow-soft",
-    ghost: "bg-secondary text-secondary-foreground border border-border",
-    danger: "bg-destructive text-destructive-foreground",
-    whats: "bg-success text-success-foreground",
-    info: "bg-info text-info-foreground",
-  }[variant];
-  return <button {...p} className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-95 disabled:opacity-50 ${v} ${className}`}>{children}</button>;
-}
-const inputCls = "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring";
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return <label className="block space-y-1"><span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>{children}</label>;
-}
-function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`rounded-2xl border border-border bg-card p-4 ${className}`}>{children}</div>;
-}
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/80 backdrop-blur-sm sm:items-center" onClick={onClose}>
-      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-border bg-card p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-bold text-primary">{title}</h3><button onClick={onClose} className="text-muted-foreground">✕</button></div>
-        {children}
-      </div>
-    </div>
-  );
-}
-function Empty({ text }: { text: string }) {
-  return <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{text}</p>;
-}
-function WaBtn({ phone, msg, label }: { phone: string; msg?: string; label?: string }) {
-  if (!phone) return <span className="text-xs text-muted-foreground">sem telefone</span>;
-  return (
-    <a href={waLink(phone, msg)} target="_blank" rel="noreferrer" aria-label={`WhatsApp ${label ?? ""}`}
-      className="inline-flex h-10 min-w-10 items-center justify-center gap-1 rounded-full bg-success px-3 text-success-foreground shadow-soft active:scale-95">
-      <MessageCircle className="h-5 w-5" />
-    </a>
-  );
-}
-function Avatar({ m }: { m: Pick<Membro, "nome" | "foto"> }) {
-  return m.foto
-    ? <img src={m.foto} alt={m.nome} className="h-12 w-12 shrink-0 rounded-full border-2 border-primary object-cover" />
-    : <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-secondary font-bold text-primary">{m.nome.slice(0, 1).toUpperCase()}</div>;
-}
-function MonthNav({ ano, mes, set }: { ano: number; mes: number; set: (a: number, m: number) => void }) {
-  const move = (d: number) => { const dt = new Date(ano, mes - 1 + d, 1); set(dt.getFullYear(), dt.getMonth() + 1); };
-  return (
-    <div className="flex items-center justify-between rounded-2xl border border-border bg-card p-2">
-      <button onClick={() => move(-1)} className="p-2 text-primary" aria-label="Mês anterior"><ChevronLeft /></button>
-      <span className="font-semibold capitalize">{MESES[mes - 1]} {ano}</span>
-      <button onClick={() => move(1)} className="p-2 text-primary" aria-label="Próximo mês"><ChevronRight /></button>
-    </div>
-  );
-}
-
-/* ---------- dados ---------- */
-function useRows<T>(table: TableName, order: string, asc = true) {
-  return useQuery({
-    queryKey: [table],
-    queryFn: async () => {
-      const { data, error } = await supabase.from(table).select("*").order(order, { ascending: asc });
-      if (error) throw error;
-      return (data ?? []) as T[];
-    },
-  });
-}
-function useSave(table: TableName) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, values }: { id?: string | undefined; values: Record<string, unknown> }) => {
-      const q = id ? supabase.from(table).update(values as never).eq("id", id) : supabase.from(table).insert(values as never);
-      const { error } = await q;
-      if (error) throw error;
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: [table] }); toast.success("Salvo"); },
-    onError: (e) => toast.error(errMsg(e)),
-  });
-}
-function useRemove(table: TableName) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from(table).delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: [table] }); toast.success("Apagado"); },
-    onError: (e) => toast.error(errMsg(e)),
-  });
-}
+type Screen = "visitantes" | "oracao" | "home" | "escala" | "membros" | "eventos" | "avisos" | "atas" | "aniv" | "dizimos" | "ofertas" | "admin";
+import { Btn, Field, Card, Modal, Empty, WaBtn, Avatar, MonthNav, inputCls, brl, errMsg } from "./igreja-ui";
+import { useRows, useSave, useRemove } from "@/lib/administracao-hooks";
+import { CultosManager, SetoresManager, VisitantesScreen, OracaoScreen } from "./administracao-screens";
+import { dataDoCulto, mensagemEscala, relatorioDizimos } from "@/lib/administracao";
 
 /* ---------- Login ---------- */
 function IgrejaEscolha({ value, onChange }: { value: { tipo: "nova" | "convite"; igreja: string; codigo: string }; onChange: (v: { tipo: "nova" | "convite"; igreja: string; codigo: string }) => void }) {
@@ -223,6 +135,7 @@ function Home({ go, nome, igreja, staff, admin }: { go: (s: Screen) => void; nom
   ];
   const extra: { id: Screen; label: string; icon: typeof Users }[] = ([
     { id: "aniv", label: "Aniversariantes", icon: Cake },
+    ...(staff ? [{ id: "visitantes" as Screen, label: "Visitantes", icon: Users }, { id: "oracao" as Screen, label: "Pedidos de Oração", icon: FileText }] : []),
     { id: "dizimos", label: "Dízimos", icon: HandCoins },
     { id: "ofertas", label: "Ofertas", icon: Gift },
     ...(admin ? [{ id: "admin" as Screen, label: "Admin", icon: Shield }] : []),
@@ -254,13 +167,15 @@ function Home({ go, nome, igreja, staff, admin }: { go: (s: Screen) => void; nom
 }
 
 /* ---------- Escala ---------- */
-function EscalaScreen({ staff }: { staff: boolean }) {
+function EscalaScreen({ staff, admin }: { staff: boolean; admin: boolean }) {
   const now = new Date();
   const [ym, setYm] = useState({ a: now.getFullYear(), m: now.getMonth() + 1 });
   const { data: escalas = [] } = useRows<Escala>("escalas", "data");
   const { data: membros = [] } = useRows<Membro>("membros", "nome");
+  const { data: cultos = [] } = useRows<Tables<"cultos">>("cultos", "nome");
+  const { data: setores = [] } = useRows<Tables<"setores">>("setores", "nome");
   const save = useSave("escalas"); const del = useRemove("escalas");
-  const [form, setForm] = useState<{ data: string; tipo_culto: string; funcao: string; membro_id: string } | null>(null);
+  const [form, setForm] = useState<{ id?: string; data: string; tipo_culto: string; funcao: string; membro_id: string; culto_id: string; setor_id: string } | null>(null);
   const byId = useMemo(() => new Map(membros.map((m) => [m.id, m])), [membros]);
   const { ini, fim } = monthRange(ym.a, ym.m);
   const doMes = escalas.filter((e) => e.data >= ini && e.data <= fim);
@@ -273,8 +188,9 @@ function EscalaScreen({ staff }: { staff: boolean }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><h2 className="text-xl font-bold">Escala</h2>
-        {staff && <Btn onClick={() => setForm({ data: hoje, tipo_culto: TIPOS_CULTO[0]!, funcao: FUNCOES[0]!, membro_id: membros[0]?.id ?? "" })}><Plus className="h-4 w-4" />Escalar</Btn>}
+        {staff && <Btn onClick={() => setForm({ data: cultos[0] ? dataDoCulto(cultos[0], hoje) : hoje, tipo_culto: cultos[0]?.nome ?? "", funcao: setores[0]?.nome ?? "", membro_id: membros.find(m => m.ativo)?.id ?? "", culto_id: cultos[0]?.id ?? "", setor_id: setores[0]?.id ?? "" })}><Plus className="h-4 w-4" />Escalar</Btn>}
       </div>
+      <div className="flex flex-wrap gap-2"><CultosManager admin={admin} /><SetoresManager staff={staff} /></div>
       <MonthNav ano={ym.a} mes={ym.m} set={(a, m) => setYm({ a, m })} />
       {!grupos.length && <Empty text="Nenhuma escala neste mês." />}
       {grupos.map(([k, itens]) => {
@@ -289,27 +205,29 @@ function EscalaScreen({ staff }: { staff: boolean }) {
                   <li key={e.id} className="flex items-center gap-3 rounded-xl bg-secondary p-2">
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold">{m?.nome ?? "—"}</p>
-                      <p className="text-xs text-muted-foreground">{e.funcao} · {e.confirmado ? <span className="text-success">confirmado</span> : "aguardando"}</p>
+                      <p className="text-xs text-muted-foreground">{setores.find(s => s.id === e.setor_id)?.nome ?? e.funcao} · {e.confirmado ? <span className="text-success">confirmado</span> : "aguardando"}</p>
                     </div>
                     {staff && <button aria-label="Confirmar" onClick={() => save.mutate({ id: e.id, values: { confirmado: !e.confirmado } })} className={`rounded-full p-2 ${e.confirmado ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"}`}><Check className="h-4 w-4" /></button>}
+                    {staff && <Btn variant="ghost" aria-label="Editar escala" onClick={() => setForm({ id: e.id, data: e.data, tipo_culto: e.tipo_culto, funcao: e.funcao, membro_id: e.membro_id, culto_id: e.culto_id ?? "", setor_id: e.setor_id ?? "" })}><Pencil className="h-4 w-4" /></Btn>}
                     {staff && <button aria-label="Remover" onClick={() => confirm("Remover da escala?") && del.mutate(e.id)} className="p-2 text-destructive"><Trash2 className="h-4 w-4" /></button>}
                     {m && <WaBtn phone={m.telefone} label={m.nome} msg={escalaMensagem(m.nome, e.funcao, e.data)} />}
                   </li>
                 );
               })}
             </ul>
+            <Btn variant="whats" className="mt-3 w-full" onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(mensagemEscala(data ?? "", tipo ?? "", itens.map(e => ({ funcao: setores.find(s => s.id === e.setor_id)?.nome ?? e.funcao, nome: byId.get(e.membro_id)?.nome ?? "—" })), cultos.find(c => c.id === itens[0]?.culto_id)?.horario ?? ""))}`, "_blank")}><MessageCircle className="h-4 w-4" />Enviar no WhatsApp</Btn>
           </Card>
         );
       })}
       {form && (
         <Modal title="Escalar pessoa" onClose={() => setForm(null)}>
           {!membros.length ? <Empty text="Cadastre membros primeiro." /> : (
-            <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save.mutate({ values: form }, { onSuccess: () => setForm({ ...form, membro_id: form.membro_id }) }); }}>
+            <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); const { id, ...values } = form; save.mutate({ id, values: { ...values, culto_id: values.culto_id || null, setor_id: values.setor_id || null } }, { onSuccess: () => setForm(null) }); }}>
               <Field label="Data do culto"><input type="date" required className={inputCls} value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} /></Field>
-              <Field label="Tipo de culto"><select className={inputCls} value={form.tipo_culto} onChange={(e) => setForm({ ...form, tipo_culto: e.target.value })}>{TIPOS_CULTO.map((t) => <option key={t}>{t}</option>)}</select></Field>
-              <Field label="Função"><input list="funcoes" required className={inputCls} value={form.funcao} onChange={(e) => setForm({ ...form, funcao: e.target.value })} /><datalist id="funcoes">{FUNCOES.map((f) => <option key={f} value={f} />)}</datalist></Field>
+              <Field label="Culto"><select required className={inputCls} value={form.culto_id} onChange={e => { const c = cultos.find(c => c.id === e.target.value); if (c) setForm({ ...form, culto_id: c.id, tipo_culto: c.nome, data: dataDoCulto(c, form.data) }); }}><option value="">Escolha um culto</option>{cultos.map(c => <option key={c.id} value={c.id}>{c.nome} · {c.horario}</option>)}</select></Field>
+              <Field label="Setor / Ministério"><select required className={inputCls} value={form.setor_id} onChange={e => { const setor = setores.find(s => s.id === e.target.value); if (setor) setForm({ ...form, setor_id: setor.id, funcao: setor.nome }); }}><option value="">Escolha um setor</option>{setores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></Field>
               <Field label="Pessoa"><select required className={inputCls} value={form.membro_id} onChange={(e) => setForm({ ...form, membro_id: e.target.value })}>{membros.filter((m) => m.ativo).map((m) => <option key={m.id} value={m.id}>{m.nome}{m.ministerio ? ` (${m.ministerio})` : ""}</option>)}</select></Field>
-              <Btn className="w-full" disabled={save.isPending}><Save className="h-4 w-4" />Salvar e escalar outra</Btn>
+              <Btn className="w-full" disabled={save.isPending}><Save className="h-4 w-4" />Salvar escala</Btn>
             </form>
           )}
         </Modal>
@@ -388,16 +306,18 @@ function MembrosScreen({ staff }: { staff: boolean }) {
 }
 
 /* ---------- Eventos ---------- */
-function EventosScreen({ staff }: { staff: boolean }) {
+function EventosScreen({ staff, admin }: { staff: boolean; admin: boolean }) {
   const { data: eventos = [] } = useRows<Evento>("eventos", "data");
+  const { data: cultos = [] } = useRows<Tables<"cultos">>("cultos", "nome");
   const save = useSave("eventos"); const del = useRemove("eventos");
-  const [edit, setEdit] = useState<{ id?: string; v: { titulo: string; data: string; horario: string; local: string; descricao: string } } | null>(null);
+  const [edit, setEdit] = useState<{ id?: string; v: { titulo: string; data: string; horario: string; local: string; descricao: string; culto_id?: string | null } } | null>(null);
   const hoje = localDateKey(new Date());
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><h2 className="text-xl font-bold">Eventos</h2>
-        {staff && <Btn onClick={() => setEdit({ v: { titulo: "", data: hoje, horario: "19:00", local: "", descricao: "" } })}><Plus className="h-4 w-4" />Novo</Btn>}
+        {staff && <Btn onClick={() => setEdit({ v: { titulo: "", data: hoje, horario: "19:00", local: "", descricao: "", culto_id: "" } })}><Plus className="h-4 w-4" />Novo</Btn>}
       </div>
+      <CultosManager admin={admin} />
       {!eventos.length && <Empty text="Nenhum evento cadastrado." />}
       {eventos.map((e) => (
         <Card key={e.id} className={e.data < hoje ? "opacity-60" : ""}>
@@ -409,7 +329,8 @@ function EventosScreen({ staff }: { staff: boolean }) {
       ))}
       {edit && (
         <Modal title={edit.id ? "Editar evento" : "Novo evento"} onClose={() => setEdit(null)}>
-          <form className="space-y-3" onSubmit={(ev) => { ev.preventDefault(); const { titulo, data, horario, local, descricao } = edit.v; save.mutate({ id: edit.id, values: { titulo, data, horario, local, descricao } }, { onSuccess: () => setEdit(null) }); }}>
+          <form className="space-y-3" onSubmit={(ev) => { ev.preventDefault(); const { titulo, data, horario, local, descricao, culto_id } = edit.v; save.mutate({ id: edit.id, values: { titulo, data, horario, local, descricao, culto_id: culto_id || null } }, { onSuccess: () => setEdit(null) }); }}>
+            <Field label="Culto"><select required className={inputCls} value={edit.v.culto_id ?? ""} onChange={e => { const c = cultos.find(c => c.id === e.target.value); if (c) setEdit({ ...edit, v: { ...edit.v, culto_id: c.id, titulo: edit.v.titulo || c.nome, horario: c.horario, data: dataDoCulto(c, edit.v.data) } }); }}><option value="">Escolha um culto</option>{cultos.map(c => <option key={c.id} value={c.id}>{c.nome} · {c.horario}</option>)}</select></Field>
             <Field label="Título"><input required list="tipos-ev" className={inputCls} value={edit.v.titulo} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, titulo: e.target.value } })} /><datalist id="tipos-ev">{["Festividade", "Congresso", "Aniversário da Igreja", "Batismo", "Santa Ceia"].map((t) => <option key={t} value={t} />)}</datalist></Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Data"><input type="date" required className={inputCls} value={edit.v.data} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, data: e.target.value } })} /></Field>
@@ -479,22 +400,33 @@ function AnivScreen() {
 function FinanceiroScreen({ tipo, staff }: { tipo: "dizimos" | "ofertas"; staff: boolean }) {
   const now = new Date();
   const [ym, setYm] = useState({ a: now.getFullYear(), m: now.getMonth() + 1 });
-  const { data: rows = [] } = useRows<{ id: string; nome?: string; valor: number; data: string; obs: string }>(tipo, "data");
+  const { data: rows = [] } = useRows<{ id: string; nome?: string; membro_id?: string | null; valor: number; data: string; obs: string }>(tipo, "data");
   const { data: membros = [] } = useRows<Membro>("membros", "nome");
   const save = useSave(tipo); const del = useRemove(tipo);
-  const [form, setForm] = useState<{ nome: string; valor: string; data: string; obs: string } | null>(null);
+  const [form, setForm] = useState<{ nome: string; membro_id: string; valor: string; data: string; obs: string } | null>(null);
   const { ini, fim } = monthRange(ym.a, ym.m);
   const doMes = rows.filter((r) => r.data >= ini && r.data <= fim).map((r) => ({ ...r, valor: Number(r.valor) }));
   const total = sumValues(doMes);
+  const [report, setReport] = useState(false);
+  const relatorio = relatorioDizimos(membros, rows, ym.a, ym.m);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><h2 className="text-xl font-bold">{tipo === "dizimos" ? "Dízimos" : "Ofertas"}</h2>
-        {staff && <Btn onClick={() => setForm({ nome: "", valor: "", data: localDateKey(now), obs: "" })}><Plus className="h-4 w-4" />Lançar</Btn>}
+        {staff && <Btn onClick={() => setForm({ nome: "", membro_id: "", valor: "", data: localDateKey(now), obs: "" })}><Plus className="h-4 w-4" />Lançar</Btn>}
       </div>
       <MonthNav ano={ym.a} mes={ym.m} set={(a, m) => setYm({ a, m })} />
       <div className="rounded-2xl bg-hero p-5 text-primary-foreground shadow-soft"><p className="text-sm">Total do mês</p><p className="text-3xl font-bold">{brl(total)}</p></div>
-      {!doMes.length && <Empty text="Nenhum lançamento neste mês." />}
-      {tipo === "dizimos"
+      {tipo === "dizimos" && <>
+        <div className="flex gap-2"><Btn variant={report ? "ghost" : "primary"} onClick={() => setReport(false)}>Lançamentos</Btn><Btn variant={report ? "primary" : "ghost"} onClick={() => setReport(true)}>Relatório Mensal</Btn></div>
+        {report && <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3 border-b border-border pb-3"><p className="text-success"><b>{relatorio.deram}</b> deram</p><p className="text-destructive"><b>{relatorio.pendentes}</b> pendentes</p></div>
+          <div className="grid grid-cols-2 gap-3"><Field label="Mês do relatório"><select className={inputCls} value={ym.m} onChange={e => setYm({ ...ym, m: Number(e.target.value) })}>{MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></Field><Field label="Ano do relatório"><input type="number" className={inputCls} value={ym.a} onChange={e => setYm({ ...ym, a: Number(e.target.value) })} /></Field></div>
+          {!membros.length && <Empty text="Nenhum membro cadastrado." />}
+          {relatorio.pessoas.map(p => <Card key={p.id}><div className="flex flex-wrap justify-between gap-2"><p className="break-words font-semibold">{p.nome}</p><span className={`font-semibold ${p.contribuiu ? "text-success" : "text-destructive"}`}>{p.contribuiu ? brl(p.total) : "PENDENTE"}</span></div>{p.itens.map(i => <p key={i.id} className="text-sm text-success">{dataBR(i.data)} · {brl(Number(i.valor))}</p>)}</Card>)}
+        </div>}
+      </>}
+      {!report && !doMes.length && <Empty text="Nenhum lançamento neste mês." />}
+      {!report && (tipo === "dizimos"
         ? totalsByPerson(doMes).map((p) => (
           <Card key={p.nome}><div className="mb-2 flex justify-between font-semibold"><span>{p.nome}</span><span className="text-primary">{brl(p.total)}</span></div>
             {p.itens.map((i) => <div key={i.id} className="flex items-center justify-between text-sm text-muted-foreground"><span>{dataBR(i.data)}</span><span className="flex items-center gap-2">{brl(i.valor)}{staff && <button aria-label="Apagar" onClick={() => del.mutate(i.id)} className="text-destructive"><Trash2 className="h-3 w-3" /></button>}</span></div>)}
@@ -502,17 +434,17 @@ function FinanceiroScreen({ tipo, staff }: { tipo: "dizimos" | "ofertas"; staff:
         : doMes.map((i) => (
           <Card key={i.id} className="flex items-center justify-between p-3"><div><p className="font-semibold">{brl(i.valor)}</p><p className="text-xs text-muted-foreground">{dataBR(i.data)}{i.obs ? ` · ${i.obs}` : ""}</p></div>
             {staff && <button aria-label="Apagar" onClick={() => del.mutate(i.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></button>}
-          </Card>))}
+          </Card>)))}
       {form && (
         <Modal title={tipo === "dizimos" ? "Lançar dízimo" : "Lançar oferta"} onClose={() => setForm(null)}>
           <form className="space-y-3" onSubmit={(e) => {
             e.preventDefault();
             const valor = Number(form.valor.replace(",", "."));
             if (!(valor > 0)) { toast.error("Valor inválido"); return; }
-            const values = tipo === "dizimos" ? { nome: form.nome, valor, data: form.data, obs: form.obs } : { valor, data: form.data, obs: form.obs };
+            const values = tipo === "dizimos" ? { nome: form.nome, membro_id: form.membro_id || null, valor, data: form.data, obs: form.obs } : { valor, data: form.data, obs: form.obs };
             save.mutate({ values }, { onSuccess: () => setForm(null) });
           }}>
-            {tipo === "dizimos" && <Field label="Dizimista"><input required list="lista-membros" className={inputCls} value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /><datalist id="lista-membros">{membros.map((m) => <option key={m.id} value={m.nome} />)}</datalist></Field>}
+            {tipo === "dizimos" && <Field label="Dizimista"><select required className={inputCls} value={form.membro_id} onChange={e => { const m = membros.find(m => m.id === e.target.value); setForm({ ...form, membro_id: e.target.value, nome: m?.nome ?? "" }); }}><option value="">Escolha um membro</option>{membros.map(m => <option key={m.id} value={m.id}>{m.nome}{m.telefone ? ` · ${m.telefone}` : ""}</option>)}</select></Field>}
             <div className="grid grid-cols-2 gap-3">
               <Field label="Valor (R$)"><input required inputMode="decimal" className={inputCls} value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })} /></Field>
               <Field label="Data"><input type="date" required className={inputCls} value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} /></Field>
@@ -739,14 +671,16 @@ export function IgrejaApp() {
               onDone={() => { qc.clear(); refetchMe(); setScreen("home"); }} />
           ) : !me ? null : <>
           {screen === "home" && <Home go={setScreen} nome={me?.nome ?? ""} igreja={me.igreja} staff={staff} admin={admin} />}
-          {screen === "escala" && <EscalaScreen staff={staff} />}
+          {screen === "escala" && <EscalaScreen staff={staff} admin={admin} />}
           {screen === "membros" && <MembrosScreen staff={staff} />}
-          {screen === "eventos" && <EventosScreen staff={staff} />}
+          {screen === "eventos" && <EventosScreen staff={staff} admin={admin} />}
           {screen === "avisos" && <AvisosScreen staff={staff} />}
           {screen === "atas" && <AtasScreen staff={staff} />}
           {screen === "aniv" && <AnivScreen />}
           {screen === "dizimos" && admin && <FinanceiroScreen tipo="dizimos" staff={admin} />}
           {screen === "ofertas" && admin && <FinanceiroScreen tipo="ofertas" staff={admin} />}
+          {screen === "visitantes" && staff && <VisitantesScreen />}
+          {screen === "oracao" && staff && <OracaoScreen />}
           {screen === "admin" && admin && <AdminScreen igreja={me.igreja} />}
           </>}
         </div>
