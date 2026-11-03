@@ -9,7 +9,7 @@ export function useRows<T>(table: TableName, order: string, asc = true) {
 }
 export function useSave(table: TableName) {
   const qc = useQueryClient(); const save = useServerFn(salvarRegistro);
-  return useMutation({ mutationFn: ({ id, values }: { id?: string; values: Record<string, unknown> }) => save({ data: { table, id, values } }),
+  return useMutation({ mutationFn: ({ id, values }: { id?: string | undefined; values: Record<string, unknown> }) => save({ data: { table, id, values } }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: [table] }); toast.success("Salvo"); }, onError: e => toast.error(e.message) });
 }
 export function useRemove(table: TableName) {

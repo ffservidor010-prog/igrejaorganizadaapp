@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Tables } from "@/integrations/supabase/types";
 
 const table = z.enum(["membros", "escalas", "eventos", "atas", "dizimos", "ofertas", "avisos", "cultos", "setores", "visitantes", "pedidos_oracao"]);
 export type TableName = z.infer<typeof table>;
@@ -9,7 +10,7 @@ export const listarRegistros = createServerFn({ method: "POST" }).middleware([re
   .handler(async ({ data, context }) => {
     const { data: igrejaId, error: igrejaError } = await context.supabase.rpc("minha_igreja");
     if (igrejaError || !igrejaId) throw new Error("Escolha sua igreja primeiro.");
-    const rows: unknown[] = [];
+    const rows: Tables<TableName>[] = [];
     for (let offset = 0; ; offset += 1000) {
       const result = await context.supabase.from(data.table).select("*").eq("igreja_id", igrejaId).order(data.order, { ascending: data.asc }).order("id").range(offset, offset + 999);
       if (result.error) throw new Error(result.error.message);
