@@ -1,6 +1,6 @@
-// Regras puras do Minha Igreja App (sem acesso a banco).
+// Regras puras do Igreja Organizada (sem acesso a banco).
 
-export const APP_NAME = "Minha Igreja App";
+export const APP_NAME = "Igreja Organizada";
 export const CARGOS = ["membro", "lider", "pastor", "admin"] as const;
 export type Cargo = (typeof CARGOS)[number];
 export const CARGO_LABEL: Record<string, string> = { membro: "Membro", lider: "Líder", pastor: "Pastor", admin: "Admin" };
