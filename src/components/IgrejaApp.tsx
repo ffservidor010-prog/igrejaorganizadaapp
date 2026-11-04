@@ -175,7 +175,7 @@ function EscalaScreen({ staff, admin }: { staff: boolean; admin: boolean }) {
   const { data: cultos = [] } = useRows<Tables<"cultos">>("cultos", "nome");
   const { data: setores = [] } = useRows<Tables<"setores">>("setores", "nome");
   const save = useSave("escalas"); const del = useRemove("escalas");
-  const [form, setForm] = useState<{ id?: string; data: string; tipo_culto: string; funcao: string; membro_id: string; culto_id: string; setor_id: string } | null>(null);
+  const [form, setForm] = useState<{ id?: string; data: string; tipo_culto: string; horario: string; funcao: string; membro_id: string; culto_id: string; setor_id: string } | null>(null);
   const byId = useMemo(() => new Map(membros.map((m) => [m.id, m])), [membros]);
   const { ini, fim } = monthRange(ym.a, ym.m);
   const doMes = escalas.filter((e) => e.data >= ini && e.data <= fim);
@@ -188,7 +188,7 @@ function EscalaScreen({ staff, admin }: { staff: boolean; admin: boolean }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between"><h2 className="text-xl font-bold">Escala</h2>
-        {staff && <Btn onClick={() => setForm({ data: cultos[0] ? dataDoCulto(cultos[0], hoje) : hoje, tipo_culto: cultos[0]?.nome ?? "", funcao: setores[0]?.nome ?? "", membro_id: membros.find(m => m.ativo)?.id ?? "", culto_id: cultos[0]?.id ?? "", setor_id: setores[0]?.id ?? "" })}><Plus className="h-4 w-4" />Escalar</Btn>}
+        {staff && <Btn onClick={() => setForm({ data: hoje, tipo_culto: "", horario: "", funcao: setores[0]?.nome ?? "", membro_id: membros.find(m => m.ativo)?.id ?? "", culto_id: "", setor_id: setores[0]?.id ?? "" })}><Plus className="h-4 w-4" />Escalar</Btn>}
       </div>
       <div className="flex flex-wrap gap-2"><CultosManager admin={admin} /><SetoresManager staff={staff} /></div>
       <MonthNav ano={ym.a} mes={ym.m} set={(a, m) => setYm({ a, m })} />
@@ -208,7 +208,7 @@ function EscalaScreen({ staff, admin }: { staff: boolean; admin: boolean }) {
                       <p className="text-xs text-muted-foreground">{setores.find(s => s.id === e.setor_id)?.nome ?? e.funcao} · {e.confirmado ? <span className="text-success">confirmado</span> : "aguardando"}</p>
                     </div>
                     {staff && <button aria-label="Confirmar" onClick={() => save.mutate({ id: e.id, values: { confirmado: !e.confirmado } })} className={`rounded-full p-2 ${e.confirmado ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"}`}><Check className="h-4 w-4" /></button>}
-                    {staff && <Btn variant="ghost" className="h-8 w-8 shrink-0 p-0" aria-label="Editar escala" onClick={() => setForm({ id: e.id, data: e.data, tipo_culto: e.tipo_culto, funcao: e.funcao, membro_id: e.membro_id, culto_id: e.culto_id ?? "", setor_id: e.setor_id ?? "" })}><Pencil className="h-4 w-4" /></Btn>}
+                    {staff && <Btn variant="ghost" className="h-8 w-8 shrink-0 p-0" aria-label="Editar escala" onClick={() => { const c = cultos.find(c => c.id === e.culto_id); const [n, h] = (c?.nome ?? e.tipo_culto).split(" · "); setForm({ id: e.id, data: e.data, tipo_culto: n ?? "", horario: c?.horario ?? h ?? "", funcao: e.funcao, membro_id: e.membro_id, culto_id: e.culto_id ?? "", setor_id: e.setor_id ?? "" }); }}><Pencil className="h-4 w-4" /></Btn>}
                     {staff && <button aria-label="Remover" onClick={() => confirm("Remover da escala?") && del.mutate(e.id)} className="p-2 text-destructive"><Trash2 className="h-4 w-4" /></button>}
                     {m && <WaBtn phone={m.telefone} label={m.nome} msg={escalaMensagem(m.nome, setores.find(s => s.id === e.setor_id)?.nome ?? e.funcao, e.data)} />}
                   </li>
@@ -222,9 +222,10 @@ function EscalaScreen({ staff, admin }: { staff: boolean; admin: boolean }) {
       {form && (
         <Modal title="Escalar pessoa" onClose={() => setForm(null)}>
           {!membros.length ? <Empty text="Cadastre membros primeiro." /> : (
-            <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); const { id, ...values } = form; save.mutate({ id, values: { ...values, culto_id: values.culto_id || null, setor_id: values.setor_id || null } }, { onSuccess: () => setForm(null) }); }}>
+            <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); const { id, horario, ...values } = form; const nomeCulto = values.tipo_culto.split(" · ")[0]!.trim(); save.mutate({ id, values: { ...values, tipo_culto: horario.trim() ? `${nomeCulto} · ${horario.trim()}` : nomeCulto, culto_id: null, setor_id: values.setor_id || null } }, { onSuccess: () => setForm(null) }); }}>
               <Field label="Data do culto"><input type="date" required className={inputCls} value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} /></Field>
-              <Field label="Culto"><select required className={inputCls} value={form.culto_id} onChange={e => { const c = cultos.find(c => c.id === e.target.value); if (c) setForm({ ...form, culto_id: c.id, tipo_culto: c.nome, data: dataDoCulto(c, form.data) }); }}><option value="">Escolha um culto</option>{cultos.map(c => <option key={c.id} value={c.id}>{c.nome} · {c.horario}</option>)}</select></Field>
+              <Field label="Culto (digite o nome)"><input required list="cultos-sugestoes" placeholder="Ex.: Culto de Libertação" className={inputCls} value={form.tipo_culto} onChange={e => { const c = cultos.find(c => c.nome === e.target.value); setForm({ ...form, tipo_culto: e.target.value, ...(c ? { horario: c.horario, data: dataDoCulto(c, form.data) } : {}) }); }} /><datalist id="cultos-sugestoes">{cultos.map(c => <option key={c.id} value={c.nome} />)}</datalist></Field>
+              <Field label="Horário"><input placeholder="Ex.: 19h" className={inputCls} value={form.horario} onChange={e => setForm({ ...form, horario: e.target.value })} /></Field>
               <Field label="Setor / Ministério"><select required className={inputCls} value={form.setor_id} onChange={e => { const setor = setores.find(s => s.id === e.target.value); if (setor) setForm({ ...form, setor_id: setor.id, funcao: setor.nome }); }}><option value="">Escolha um setor</option>{setores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></Field>
               <Field label="Pessoa"><select required className={inputCls} value={form.membro_id} onChange={(e) => setForm({ ...form, membro_id: e.target.value })}>{membros.filter((m) => m.ativo).map((m) => <option key={m.id} value={m.id}>{m.nome}{m.ministerio ? ` (${m.ministerio})` : ""}</option>)}</select></Field>
               <Btn className="w-full" disabled={save.isPending}><Save className="h-4 w-4" />Salvar escala</Btn>
