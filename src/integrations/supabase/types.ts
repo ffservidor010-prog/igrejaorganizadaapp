@@ -310,6 +310,47 @@ export type Database = {
           },
         ]
       }
+      galeria: {
+        Row: {
+          caminho: string | null
+          created_at: string
+          data: string
+          id: string
+          igreja_id: string
+          tipo: string
+          titulo: string
+          url: string
+        }
+        Insert: {
+          caminho?: string | null
+          created_at?: string
+          data?: string
+          id?: string
+          igreja_id?: string
+          tipo?: string
+          titulo?: string
+          url: string
+        }
+        Update: {
+          caminho?: string | null
+          created_at?: string
+          data?: string
+          id?: string
+          igreja_id?: string
+          tipo?: string
+          titulo?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "galeria_igreja_id_fkey"
+            columns: ["igreja_id"]
+            isOneToOne: false
+            referencedRelation: "igrejas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       igrejas: {
         Row: {
           codigo_convite: string
@@ -348,6 +389,7 @@ export type Database = {
           nome: string
           observacao: string
           telefone: string
+          user_id: string | null
         }
         Insert: {
           ativo?: boolean
@@ -362,6 +404,7 @@ export type Database = {
           nome: string
           observacao?: string
           telefone?: string
+          user_id?: string | null
         }
         Update: {
           ativo?: boolean
@@ -376,6 +419,7 @@ export type Database = {
           nome?: string
           observacao?: string
           telefone?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -604,6 +648,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      atualizar_minha_foto: { Args: { _foto: string }; Returns: undefined }
       converter_visitante: { Args: { _visitante_id: string }; Returns: string }
       criar_igreja: { Args: { _nome: string }; Returns: string }
       definir_papel: {
@@ -624,6 +669,7 @@ export type Database = {
       }
       is_igreja_admin: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      meu_membro: { Args: never; Returns: string }
       minha_igreja: { Args: never; Returns: string }
     }
     Enums: {
