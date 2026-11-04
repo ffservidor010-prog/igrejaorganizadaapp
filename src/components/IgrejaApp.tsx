@@ -19,11 +19,12 @@ type Membro = Tables<"membros">;
 type Escala = Tables<"escalas">;
 type Evento = Tables<"eventos">;
 type Ata = Tables<"atas">;
-type Screen = "visitantes" | "oracao" | "home" | "escala" | "membros" | "eventos" | "avisos" | "atas" | "aniv" | "dizimos" | "ofertas" | "admin";
+type Screen = "galeria" | "visitantes" | "oracao" | "home" | "escala" | "membros" | "eventos" | "avisos" | "atas" | "aniv" | "dizimos" | "ofertas" | "admin";
 import { Btn, Field, Card, Modal, Empty, WaBtn, Avatar, MonthNav, inputCls, brl, errMsg } from "./igreja-ui";
 import { useRows, useSave, useRemove } from "@/lib/administracao-hooks";
 import { CultosManager, SetoresManager, VisitantesScreen, OracaoScreen } from "./administracao-screens";
 import { dataDoCulto, mensagemEscala, relatorioDizimos } from "@/lib/administracao";
+import { MembroArea, Galeria } from "./membro-area";
 
 /* ---------- Login ---------- */
 function IgrejaEscolha({ value, onChange }: { value: { tipo: "nova" | "convite"; igreja: string; codigo: string }; onChange: (v: { tipo: "nova" | "convite"; igreja: string; codigo: string }) => void }) {
@@ -135,7 +136,7 @@ function Home({ go, nome, igreja, staff, admin }: { go: (s: Screen) => void; nom
   ];
   const extra: { id: Screen; label: string; icon: typeof Users }[] = ([
     { id: "aniv", label: "Aniversariantes", icon: Cake },
-    ...(staff ? [{ id: "visitantes" as Screen, label: "Visitantes", icon: Users }, { id: "oracao" as Screen, label: "Pedidos de Oração", icon: FileText }] : []),
+    ...(staff ? [{ id: "visitantes" as Screen, label: "Visitantes", icon: Users }, { id: "oracao" as Screen, label: "Pedidos de Oração", icon: FileText }, { id: "galeria" as Screen, label: "Galeria", icon: PartyPopper }] : []),
     { id: "dizimos", label: "Dízimos", icon: HandCoins },
     { id: "ofertas", label: "Ofertas", icon: Gift },
     ...(admin ? [{ id: "admin" as Screen, label: "Admin", icon: Shield }] : []),
@@ -666,7 +667,7 @@ export function IgrejaApp() {
       {!session ? <Auth /> : (
         <div className="mx-auto max-w-lg px-4 pb-16 pt-[max(env(safe-area-inset-top),1rem)]">
           <div className="mb-4 flex items-center justify-between">
-            {screen !== "home" && !semIgreja
+            {screen !== "home" && !semIgreja && staff
               ? <button onClick={() => setScreen("home")} className="flex items-center gap-1 text-sm text-primary"><ArrowLeft className="h-4 w-4" />Início</button>
               : <span className="truncate text-xs uppercase tracking-widest text-muted-foreground">{me?.igreja || APP_NAME}</span>}
             <button onClick={sair} className="flex items-center gap-1 text-sm text-muted-foreground"><LogOut className="h-4 w-4" />Sair</button>
@@ -674,7 +675,8 @@ export function IgrejaApp() {
           {semIgreja ? (
             <Onboarding inicial={{ tipo: meta['igreja_tipo'] === "convite" ? "convite" : "nova", igreja: meta['igreja_nome'] ?? "", codigo: meta['igreja_codigo'] ?? "" }}
               onDone={() => { qc.clear(); refetchMe(); setScreen("home"); }} />
-          ) : !me ? null : <>
+          ) : !me ? null : !staff ? <MembroArea igreja={me.igreja} igrejaId={me.igrejaId ?? ""} /> : <>
+          {screen === "galeria" && <Galeria staff igrejaId={me.igrejaId ?? ""} />}
           {screen === "home" && <Home go={setScreen} nome={me?.nome ?? ""} igreja={me.igreja} staff={staff} admin={admin} />}
           {screen === "escala" && <EscalaScreen staff={staff} admin={admin} />}
           {screen === "membros" && <MembrosScreen staff={staff} />}
