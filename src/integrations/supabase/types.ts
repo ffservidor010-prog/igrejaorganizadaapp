@@ -191,6 +191,47 @@ export type Database = {
           },
         ]
       }
+      duvidas: {
+        Row: {
+          created_at: string
+          id: string
+          igreja_id: string
+          nome: string
+          pergunta: string
+          respondido_em: string | null
+          resposta: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          igreja_id?: string
+          nome?: string
+          pergunta: string
+          respondido_em?: string | null
+          resposta?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          igreja_id?: string
+          nome?: string
+          pergunta?: string
+          respondido_em?: string | null
+          resposta?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duvidas_igreja_id_fkey"
+            columns: ["igreja_id"]
+            isOneToOne: false
+            referencedRelation: "igrejas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       escalas: {
         Row: {
           confirmado: boolean
@@ -378,8 +419,11 @@ export type Database = {
       membros: {
         Row: {
           ativo: boolean
+          batismo_aguas: string | null
+          batismo_espirito: string | null
           cargo: string
           created_at: string
+          data_membro: string | null
           endereco: string
           foto: string | null
           id: string
@@ -393,8 +437,11 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          batismo_aguas?: string | null
+          batismo_espirito?: string | null
           cargo?: string
           created_at?: string
+          data_membro?: string | null
           endereco?: string
           foto?: string | null
           id?: string
@@ -408,8 +455,11 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          batismo_aguas?: string | null
+          batismo_espirito?: string | null
           cargo?: string
           created_at?: string
+          data_membro?: string | null
           endereco?: string
           foto?: string | null
           id?: string
