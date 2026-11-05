@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
-import { BadgeCheck, CalendarDays, Download, Image as ImageIcon, Send, Trash2, User, Upload, Plus } from "lucide-react";
+import { BadgeCheck, CalendarDays, Download, Image as ImageIcon, Send, Trash2, User, Upload, Plus, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { APP_NAME, CARGO_LABEL, dataBR } from "@/lib/igreja";
@@ -28,12 +28,12 @@ export function codigoCredencial(igrejaId: string, membroId: string) {
   return `IGREJA-ORGANIZADA:${igrejaId}:${membroId}`;
 }
 
-function credencialPdf(m: Membro, igreja: string, qr: string): Blob {
+function credencialPdf(m: Membro, igreja: string, qr: string, carteirinha = false): Blob {
   const doc = new jsPDF({ unit: "mm", format: [86, 140] });
   doc.setFillColor(13, 15, 20); doc.rect(0, 0, 86, 140, "F");
   doc.setTextColor(212, 175, 55); doc.setFont("helvetica", "bold"); doc.setFontSize(11);
-  doc.text(APP_NAME.toUpperCase(), 43, 10, { align: "center" });
-  doc.setFontSize(9); doc.setTextColor(230, 230, 230); doc.text(igreja, 43, 15, { align: "center" });
+  if (carteirinha) { doc.setFontSize(12); doc.text(igreja.toUpperCase(), 43, 10, { align: "center", maxWidth: 78 }); doc.setFontSize(8); doc.setTextColor(230, 230, 230); doc.text("CARTEIRA DE MEMBRO", 43, 15, { align: "center" }); }
+  else { doc.text(APP_NAME.toUpperCase(), 43, 10, { align: "center" }); doc.setFontSize(9); doc.setTextColor(230, 230, 230); doc.text(igreja, 43, 15, { align: "center" }); }
   if (m.foto) { try { doc.addImage(m.foto, "JPEG", 28, 20, 30, 30); } catch { /* foto inválida */ } }
   doc.setTextColor(255, 255, 255); doc.setFontSize(13); doc.text(m.nome, 43, 58, { align: "center", maxWidth: 76 });
   doc.setFontSize(9); doc.setTextColor(212, 175, 55);
@@ -41,12 +41,13 @@ function credencialPdf(m: Membro, igreja: string, qr: string): Blob {
   doc.setFillColor(255, 255, 255); doc.roundedRect(21, 72, 44, 44, 2, 2, "F");
   doc.addImage(qr, "PNG", 23, 74, 40, 40);
   doc.setTextColor(180, 180, 180); doc.setFontSize(7);
-  doc.text(`Membro desde ${dataBR(m.created_at.slice(0, 10))}`, 43, 124, { align: "center" });
-  doc.text(`Nº ${m.id.slice(0, 8).toUpperCase()}`, 43, 129, { align: "center" });
+  doc.text(`Membro desde ${dataBR(m.data_membro ?? m.created_at.slice(0, 10))}`, 43, 121, { align: "center" });
+  if (carteirinha) doc.text(`Batismo águas: ${m.batismo_aguas ? dataBR(m.batismo_aguas) : "—"} · Espírito: ${m.batismo_espirito ? dataBR(m.batismo_espirito) : "—"}`, 43, 125, { align: "center" });
+  doc.text(`Nº ${m.id.slice(0, 8).toUpperCase()}`, 43, 132, { align: "center" });
   return doc.output("blob");
 }
 
-type Aba = "credencial" | "dados" | "cultos" | "escala" | "galeria";
+type Aba = "credencial" | "carteirinha" | "duvidas" | "dados" | "cultos" | "escala" | "galeria";
 
 export function MembroArea({ igreja, igrejaId }: { igreja: string; igrejaId: string }) {
   const qc = useQueryClient();
@@ -77,11 +78,13 @@ export function MembroArea({ igreja, igrejaId }: { igreja: string; igrejaId: str
     { id: "cultos", label: "Cultos", icon: CalendarDays },
     { id: "escala", label: "Minha escala", icon: CalendarDays },
     { id: "galeria", label: "Galeria", icon: ImageIcon },
+    { id: "carteirinha", label: "Carteirinha", icon: BadgeCheck },
+    { id: "duvidas", label: "Dúvidas", icon: HelpCircle },
   ];
   return (
     <div className="space-y-4">
       <div className="text-center"><h1 className="text-2xl font-bold text-primary">{igreja || APP_NAME}</h1><p className="text-sm text-muted-foreground">Olá, {m.nome}</p></div>
-      <div className="grid grid-cols-5 gap-1">
+      <div className="grid grid-cols-4 gap-1">
         {abas.map((a) => (
           <button key={a.id} onClick={() => setAba(a.id)} className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-[11px] ${aba === a.id ? "border-primary bg-primary/15 text-primary" : "border-border bg-secondary"}`}>
             <a.icon className="h-5 w-5" />{a.label}
@@ -89,6 +92,8 @@ export function MembroArea({ igreja, igrejaId }: { igreja: string; igrejaId: str
         ))}
       </div>
       {aba === "credencial" && <Credencial m={m} igreja={igreja} igrejaId={igrejaId} onFoto={(f) => foto.mutate(f)} enviando={foto.isPending} />}
+      {aba === "carteirinha" && <Credencial carteirinha m={m} igreja={igreja} igrejaId={igrejaId} onFoto={(f) => foto.mutate(f)} enviando={foto.isPending} />}
+      {aba === "duvidas" && <Duvidas staff={false} nome={m.nome} />}
       {aba === "dados" && <MeusDados m={m} igreja={igreja} />}
       {aba === "cultos" && <ProximosCultos />}
       {aba === "escala" && <MinhaEscala membroId={m.id} />}
@@ -97,15 +102,15 @@ export function MembroArea({ igreja, igrejaId }: { igreja: string; igrejaId: str
   );
 }
 
-function Credencial({ m, igreja, igrejaId, onFoto, enviando }: { m: Membro; igreja: string; igrejaId: string; onFoto: (f: File) => void; enviando: boolean }) {
+function Credencial({ m, igreja, igrejaId, onFoto, enviando, carteirinha = false }: { carteirinha?: boolean; m: Membro; igreja: string; igrejaId: string; onFoto: (f: File) => void; enviando: boolean }) {
   const [qr, setQr] = useState("");
   useEffect(() => { QRCode.toDataURL(codigoCredencial(igrejaId, m.id), { margin: 1, width: 320 }).then(setQr); }, [igrejaId, m.id]);
-  const nomeArq = `credencial-${m.nome.toLowerCase().replace(/\s+/g, "-")}.pdf`;
+  const nomeArq = `${carteirinha ? "carteirinha" : "credencial"}-${m.nome.toLowerCase().replace(/\s+/g, "-")}.pdf`;
   return (
     <div className="space-y-3">
       <Card className="border-primary/40 bg-gradient-to-b from-card to-secondary text-center">
-        <p className="text-xs font-bold uppercase tracking-widest text-primary">{APP_NAME}</p>
-        <p className="text-sm text-muted-foreground">{igreja}</p>
+        {carteirinha ? <><p className="text-base font-bold uppercase tracking-widest text-primary">{igreja}</p><p className="text-xs text-muted-foreground">Carteira de membro</p></>
+          : <><p className="text-xs font-bold uppercase tracking-widest text-primary">{APP_NAME}</p><p className="text-sm text-muted-foreground">{igreja}</p></>}
         <div className="my-3 flex justify-center">
           {m.foto ? <img src={m.foto} alt={m.nome} className="h-28 w-28 rounded-full border-4 border-primary object-cover" />
             : <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-primary bg-secondary text-4xl font-bold text-primary">{m.nome.slice(0, 1)}</div>}
@@ -113,15 +118,16 @@ function Credencial({ m, igreja, igrejaId, onFoto, enviando }: { m: Membro; igre
         <h2 className="text-xl font-bold">{m.nome}</h2>
         <p className="text-sm text-primary">{CARGO_LABEL[m.cargo] ?? m.cargo}{m.ministerio ? ` · ${m.ministerio}` : ""}</p>
         {qr && <img src={qr} alt="QR Code da credencial" className="mx-auto mt-4 h-40 w-40 rounded-xl bg-foreground p-2" />}
-        <p className="mt-2 text-xs text-muted-foreground">Nº {m.id.slice(0, 8).toUpperCase()} · membro desde {dataBR(m.created_at.slice(0, 10))}</p>
+        <p className="mt-2 text-xs text-muted-foreground">Nº {m.id.slice(0, 8).toUpperCase()} · membro desde {dataBR(m.data_membro ?? m.created_at.slice(0, 10))}</p>
+        {carteirinha && <p className="mt-1 text-xs text-muted-foreground">Batismo nas águas: {m.batismo_aguas ? dataBR(m.batismo_aguas) : "—"} · No Espírito Santo: {m.batismo_espirito ? dataBR(m.batismo_espirito) : "—"}</p>}
       </Card>
       <label className="block cursor-pointer rounded-xl border border-dashed border-primary/50 p-3 text-center text-sm text-primary">
         <Upload className="mr-1 inline h-4 w-4" />{enviando ? "Enviando…" : m.foto ? "Trocar minha foto" : "Adicionar minha foto"}
         <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFoto(f); }} />
       </label>
       <div className="grid grid-cols-2 gap-2">
-        <Btn disabled={!qr} onClick={() => baixar(credencialPdf(m, igreja, qr), nomeArq)}><Download className="h-4 w-4" />Baixar PDF</Btn>
-        <Btn variant="whats" disabled={!qr} onClick={() => compartilharPdf(credencialPdf(m, igreja, qr), nomeArq, "Minha credencial")}><Send className="h-4 w-4" />Enviar PDF</Btn>
+        <Btn disabled={!qr} onClick={() => baixar(credencialPdf(m, igreja, qr, carteirinha), nomeArq)}><Download className="h-4 w-4" />Baixar PDF</Btn>
+        <Btn variant="whats" disabled={!qr} onClick={() => compartilharPdf(credencialPdf(m, igreja, qr, carteirinha), nomeArq, carteirinha ? "Minha carteirinha" : "Minha credencial")}><Send className="h-4 w-4" />Enviar PDF</Btn>
       </div>
     </div>
   );
@@ -130,7 +136,8 @@ function Credencial({ m, igreja, igrejaId, onFoto, enviando }: { m: Membro; igre
 function MeusDados({ m, igreja }: { m: Membro; igreja: string }) {
   const linhas: [string, string][] = [
     ["Nome", m.nome], ["Telefone", m.telefone || "—"], ["Cargo", CARGO_LABEL[m.cargo] ?? m.cargo], ["Ministério", m.ministerio || "—"],
-    ["Nascimento", m.nascimento ? dataBR(m.nascimento) : "—"], ["Endereço", m.endereco || "—"], ["Igreja", igreja],
+    ["Nascimento", m.nascimento ? dataBR(m.nascimento) : "—"], ["Membro desde", m.data_membro ? dataBR(m.data_membro) : "—"],
+    ["Batismo nas águas", m.batismo_aguas ? dataBR(m.batismo_aguas) : "—"], ["Batismo no Espírito Santo", m.batismo_espirito ? dataBR(m.batismo_espirito) : "—"], ["Endereço", m.endereco || "—"], ["Igreja", igreja],
   ];
   return (
     <Card>
@@ -233,6 +240,60 @@ export function Galeria({ staff, igrejaId }: { staff: boolean; igrejaId: string 
           </form>
         </Modal>
       )}
+    </div>
+  );
+}
+
+type Duvida = { id: string; nome: string; pergunta: string; resposta: string; respondido_em: string | null; created_at: string };
+
+export function Duvidas({ staff, nome = "" }: { staff: boolean; nome?: string }) {
+  const qc = useQueryClient();
+  const [texto, setTexto] = useState("");
+  const [resp, setResp] = useState<Record<string, string>>({});
+  const { data = [] } = useQuery({
+    queryKey: ["duvidas"],
+    queryFn: async () => {
+      const r = await supabase.from("duvidas" as never).select("*").order("created_at", { ascending: false });
+      if (r.error) throw r.error; return (r.data ?? []) as unknown as Duvida[];
+    },
+  });
+  const ok = () => qc.invalidateQueries({ queryKey: ["duvidas"] });
+  const enviar = useMutation({
+    mutationFn: async () => { const r = await supabase.from("duvidas" as never).insert({ nome, pergunta: texto.trim() } as never); if (r.error) throw r.error; },
+    onSuccess: () => { setTexto(""); ok(); toast.success("Dúvida enviada"); }, onError: (e) => toast.error(errMsg(e)),
+  });
+  const responder = useMutation({
+    mutationFn: async (d: Duvida) => { const r = await supabase.from("duvidas" as never).update({ resposta: resp[d.id] ?? d.resposta, respondido_em: new Date().toISOString() } as never).eq("id", d.id); if (r.error) throw r.error; },
+    onSuccess: () => { ok(); toast.success("Resposta salva"); }, onError: (e) => toast.error(errMsg(e)),
+  });
+  const apagar = useMutation({
+    mutationFn: async (id: string) => { const r = await supabase.from("duvidas" as never).delete().eq("id", id); if (r.error) throw r.error; },
+    onSuccess: ok, onError: (e) => toast.error(errMsg(e)),
+  });
+  return (
+    <div className="space-y-3">
+      <h2 className="text-xl font-bold">Dúvidas {staff ? "dos membros" : ""}</h2>
+      {!staff && (
+        <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); if (texto.trim()) enviar.mutate(); }}>
+          <textarea required rows={3} className={inputCls} placeholder="Escreva sua dúvida para o pastor…" value={texto} onChange={(e) => setTexto(e.target.value)} />
+          <Btn className="w-full" disabled={enviar.isPending}><Send className="h-4 w-4" />Enviar dúvida</Btn>
+        </form>
+      )}
+      {!data.length && <Empty text="Nenhuma dúvida ainda." />}
+      {data.map((d) => (
+        <Card key={d.id} className="space-y-2">
+          <div className="flex items-baseline justify-between gap-2"><span className="font-bold text-primary">{d.nome || "Membro"}</span>
+            <span className="text-xs">{d.respondido_em ? <span className="text-success">respondida</span> : <span className="text-destructive">aguardando</span>} · {dataBR(d.created_at.slice(0, 10))}</span></div>
+          <p className="text-sm">{d.pergunta}</p>
+          {staff ? (
+            <div className="space-y-2">
+              <textarea rows={2} className={inputCls} placeholder="Resposta" value={resp[d.id] ?? d.resposta} onChange={(e) => setResp({ ...resp, [d.id]: e.target.value })} />
+              <div className="flex gap-2"><Btn className="flex-1" disabled={responder.isPending} onClick={() => responder.mutate(d)}>Responder</Btn>
+                <Btn variant="danger" aria-label="Apagar" onClick={() => confirm("Apagar dúvida?") && apagar.mutate(d.id)}><Trash2 className="h-4 w-4" /></Btn></div>
+            </div>
+          ) : d.resposta ? <p className="rounded-xl bg-secondary p-2 text-sm"><span className="font-semibold text-primary">Resposta: </span>{d.resposta}</p> : null}
+        </Card>
+      ))}
     </div>
   );
 }

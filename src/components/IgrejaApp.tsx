@@ -19,12 +19,12 @@ type Membro = Tables<"membros">;
 type Escala = Tables<"escalas">;
 type Evento = Tables<"eventos">;
 type Ata = Tables<"atas">;
-type Screen = "galeria" | "visitantes" | "oracao" | "home" | "escala" | "membros" | "eventos" | "avisos" | "atas" | "aniv" | "dizimos" | "ofertas" | "admin";
+type Screen = "duvidas" | "galeria" | "visitantes" | "oracao" | "home" | "escala" | "membros" | "eventos" | "avisos" | "atas" | "aniv" | "dizimos" | "ofertas" | "admin";
 import { Btn, Field, Card, Modal, Empty, WaBtn, Avatar, MonthNav, inputCls, brl, errMsg } from "./igreja-ui";
 import { useRows, useSave, useRemove } from "@/lib/administracao-hooks";
 import { CultosManager, SetoresManager, VisitantesScreen, OracaoScreen } from "./administracao-screens";
 import { dataDoCulto, mensagemEscala, relatorioDizimos } from "@/lib/administracao";
-import { MembroArea, Galeria } from "./membro-area";
+import { MembroArea, Galeria, Duvidas } from "./membro-area";
 
 /* ---------- Login ---------- */
 function IgrejaEscolha({ value, onChange }: { value: { tipo: "nova" | "convite"; igreja: string; codigo: string }; onChange: (v: { tipo: "nova" | "convite"; igreja: string; codigo: string }) => void }) {
@@ -136,7 +136,7 @@ function Home({ go, nome, igreja, staff, admin }: { go: (s: Screen) => void; nom
   ];
   const extra: { id: Screen; label: string; icon: typeof Users }[] = ([
     { id: "aniv", label: "Aniversariantes", icon: Cake },
-    ...(staff ? [{ id: "visitantes" as Screen, label: "Visitantes", icon: Users }, { id: "oracao" as Screen, label: "Pedidos de Oração", icon: FileText }, { id: "galeria" as Screen, label: "Galeria", icon: PartyPopper }] : []),
+    ...(staff ? [{ id: "visitantes" as Screen, label: "Visitantes", icon: Users }, { id: "oracao" as Screen, label: "Pedidos de Oração", icon: FileText }, { id: "galeria" as Screen, label: "Galeria", icon: PartyPopper }, { id: "duvidas" as Screen, label: "Dúvidas", icon: FileText }] : []),
     { id: "dizimos", label: "Dízimos", icon: HandCoins },
     { id: "ofertas", label: "Ofertas", icon: Gift },
     ...(admin ? [{ id: "admin" as Screen, label: "Admin", icon: Shield }] : []),
@@ -246,7 +246,7 @@ async function fotoParaDataUrl(file: File) {
   ctx.drawImage(img, (s - img.width * r) / 2, (s - img.height * r) / 2, img.width * r, img.height * r);
   return c.toDataURL("image/jpeg", 0.8);
 }
-const membroVazio = { nome: "", telefone: "", cargo: "membro", ministerio: "", foto: null as string | null, ativo: true, nascimento: "", endereco: "", observacao: "" };
+const membroVazio = { nome: "", telefone: "", cargo: "membro", ministerio: "", foto: null as string | null, ativo: true, nascimento: "", data_membro: "", batismo_aguas: "", batismo_espirito: "", endereco: "", observacao: "" };
 
 function MembrosScreen({ staff }: { staff: boolean }) {
   const { data: membros = [], isLoading } = useRows<Membro>("membros", "nome");
@@ -270,7 +270,7 @@ function MembrosScreen({ staff }: { staff: boolean }) {
               <p className="truncate font-semibold">{m.nome}</p>
               <p className="truncate text-xs text-muted-foreground"><span className="text-primary">{CARGO_LABEL[m.cargo] ?? m.cargo}</span>{m.ministerio ? ` · ${m.ministerio}` : ""}{!m.ativo ? " · inativo" : ""}</p>
             </div>
-            {staff && <button aria-label="Editar" onClick={() => setEdit({ id: m.id, v: { ...membroVazio, ...m, nascimento: m.nascimento ?? "" } })} className="p-2 text-muted-foreground"><Pencil className="h-4 w-4" /></button>}
+            {staff && <button aria-label="Editar" onClick={() => setEdit({ id: m.id, v: { ...membroVazio, ...m, nascimento: m.nascimento ?? "", data_membro: m.data_membro ?? "", batismo_aguas: m.batismo_aguas ?? "", batismo_espirito: m.batismo_espirito ?? "" } })} className="p-2 text-muted-foreground"><Pencil className="h-4 w-4" /></button>}
             <WaBtn phone={m.telefone} label={m.nome} />
           </Card></li>
         ))}
@@ -279,7 +279,7 @@ function MembrosScreen({ staff }: { staff: boolean }) {
         <Modal title={edit.id ? "Editar membro" : "Adicionar membro"} onClose={() => setEdit(null)}>
           <form className="space-y-3" onSubmit={(e) => {
             e.preventDefault();
-            const v = { ...edit.v, nascimento: edit.v.nascimento || null };
+            const v = { ...edit.v, nascimento: edit.v.nascimento || null, data_membro: edit.v.data_membro || null, batismo_aguas: edit.v.batismo_aguas || null, batismo_espirito: edit.v.batismo_espirito || null };
             save.mutate({ id: edit.id, values: v }, { onSuccess: () => setEdit(null) });
           }}>
             <div className="flex items-center gap-3">
@@ -292,6 +292,7 @@ function MembrosScreen({ staff }: { staff: boolean }) {
               <Field label="Cargo"><select className={inputCls} value={edit.v.cargo} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, cargo: e.target.value } })}>{CARGOS.map((c) => <option key={c} value={c}>{CARGO_LABEL[c]}</option>)}</select></Field>
               <Field label="Nascimento"><input type="date" className={inputCls} value={edit.v.nascimento} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, nascimento: e.target.value } })} /></Field>
             </div>
+            <div className="grid grid-cols-3 gap-2"><Field label="Membro desde"><input type="date" className={inputCls} value={edit.v.data_membro} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, data_membro: e.target.value } })} /></Field><Field label="Batismo nas águas"><input type="date" className={inputCls} value={edit.v.batismo_aguas} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, batismo_aguas: e.target.value } })} /></Field><Field label="Batismo no Espírito"><input type="date" className={inputCls} value={edit.v.batismo_espirito} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, batismo_espirito: e.target.value } })} /></Field></div>
             <Field label="Instrumento ou ministério"><input list="funcoes-m" className={inputCls} placeholder="Ex.: Bateria, Louvor, Recepção" value={edit.v.ministerio} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, ministerio: e.target.value } })} /><datalist id="funcoes-m">{FUNCOES.map((f) => <option key={f} value={f} />)}</datalist></Field>
             <Field label="Endereço"><input className={inputCls} value={edit.v.endereco} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, endereco: e.target.value } })} /></Field>
             <Field label="Observação"><textarea className={inputCls} value={edit.v.observacao} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, observacao: e.target.value } })} /></Field>
@@ -677,6 +678,7 @@ export function IgrejaApp() {
               onDone={() => { qc.clear(); refetchMe(); setScreen("home"); }} />
           ) : !me ? null : !staff ? <MembroArea igreja={me.igreja} igrejaId={me.igrejaId ?? ""} /> : <>
           {screen === "galeria" && <Galeria staff igrejaId={me.igrejaId ?? ""} />}
+          {screen === "duvidas" && <Duvidas staff />}
           {screen === "home" && <Home go={setScreen} nome={me?.nome ?? ""} igreja={me.igreja} staff={staff} admin={admin} />}
           {screen === "escala" && <EscalaScreen staff={staff} admin={admin} />}
           {screen === "membros" && <MembrosScreen staff={staff} />}
