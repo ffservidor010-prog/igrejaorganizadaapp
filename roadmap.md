@@ -12,4 +12,4 @@
 - [x] Validar regras com testes, políticas de isolamento e tela pública.
 - [ ] Verificar cadastros e conversão pela interface autenticada — bloqueado: Supabase externo sem sessão de teste disponível.
 - [x] Escala: culto e horário digitados livremente.
-- [ ] Renomear para Igreja Organizada; área do membro (credencial QR/PDF, dados, cultos, minhas escalas, galeria) com acesso restrito.
+- [x] Renomear para Igreja Organizada; área do membro (credencial QR/PDF, dados, cultos, minhas escalas, galeria) com acesso restrito.
