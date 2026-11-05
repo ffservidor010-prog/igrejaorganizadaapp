@@ -19,3 +19,5 @@
 - Cultos/setores are tenant-owned catalogues referenced by composite tenant foreign keys; historical schedule/event text remains when catalogue entries are deleted.
 - Tithes link to member IDs; legacy name matching is allowed only for unique names, preventing ambiguous attribution.
 - Visitor conversion uses a row-locked SECURITY INVOKER RPC to ensure atomic, idempotent conversion under the caller's RLS permissions.
+- Non-staff users (not admin/pastor) only see the member area (`src/components/membro-area.tsx`); RLS limits them to their own `membros` row (linked by `user_id`, auto-created via `meu_membro()`) and their own `escalas`, so hiding admin UI is never the only protection.
+- Gallery media lives in the private `galeria` bucket under `<igreja_id>/` and is shown via signed URLs; only staff upload/delete.
