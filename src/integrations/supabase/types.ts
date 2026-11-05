@@ -430,6 +430,9 @@ export type Database = {
           igreja_id: string
           ministerio: string
           nascimento: string | null
+          batismo_aguas: string | null
+          batismo_espirito: string | null
+          data_membro: string | null
           nome: string
           observacao: string
           telefone: string
@@ -448,6 +451,9 @@ export type Database = {
           igreja_id?: string
           ministerio?: string
           nascimento?: string | null
+          batismo_aguas?: string | null
+          batismo_espirito?: string | null
+          data_membro?: string | null
           nome: string
           observacao?: string
           telefone?: string
@@ -466,6 +472,9 @@ export type Database = {
           igreja_id?: string
           ministerio?: string
           nascimento?: string | null
+          batismo_aguas?: string | null
+          batismo_espirito?: string | null
+          data_membro?: string | null
           nome?: string
           observacao?: string
           telefone?: string
