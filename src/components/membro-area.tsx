@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
-import { BadgeCheck, CalendarDays, Download, Image as ImageIcon, Send, Trash2, User, Upload, Plus, HelpCircle } from "lucide-react";
+import { BadgeCheck, CalendarDays, Download, Image as ImageIcon, Send, Trash2, User, Plus, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { APP_NAME, CARGO_LABEL, dataBR } from "@/lib/igreja";
@@ -25,25 +25,64 @@ async function reduzirFoto(file: File) {
 }
 
 export function codigoCredencial(igrejaId: string, membroId: string) {
-  return `IGREJA-ORGANIZADA:${igrejaId}:${membroId}`;
+  const origem = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origem}/validar-membro?id=${membroId}&igreja=${igrejaId}`;
 }
 
-function credencialPdf(m: Membro, igreja: string, qr: string, carteirinha = false): Blob {
-  const doc = new jsPDF({ unit: "mm", format: [86, 140] });
-  doc.setFillColor(13, 15, 20); doc.rect(0, 0, 86, 140, "F");
-  doc.setTextColor(212, 175, 55); doc.setFont("helvetica", "bold"); doc.setFontSize(11);
-  if (carteirinha) { doc.setFontSize(12); doc.text(igreja.toUpperCase(), 43, 10, { align: "center", maxWidth: 78 }); doc.setFontSize(8); doc.setTextColor(230, 230, 230); doc.text("CARTEIRA DE MEMBRO", 43, 15, { align: "center" }); }
-  else { doc.text(APP_NAME.toUpperCase(), 43, 10, { align: "center" }); doc.setFontSize(9); doc.setTextColor(230, 230, 230); doc.text(igreja, 43, 15, { align: "center" }); }
-  if (m.foto) { try { doc.addImage(m.foto, "JPEG", 28, 20, 30, 30); } catch { /* foto inválida */ } }
-  doc.setTextColor(255, 255, 255); doc.setFontSize(13); doc.text(m.nome, 43, 58, { align: "center", maxWidth: 76 });
-  doc.setFontSize(9); doc.setTextColor(212, 175, 55);
-  doc.text(`${CARGO_LABEL[m.cargo] ?? m.cargo}${m.ministerio ? ` · ${m.ministerio}` : ""}`, 43, 65, { align: "center" });
-  doc.setFillColor(255, 255, 255); doc.roundedRect(21, 72, 44, 44, 2, 2, "F");
-  doc.addImage(qr, "PNG", 23, 74, 40, 40);
-  doc.setTextColor(180, 180, 180); doc.setFontSize(7);
-  doc.text(`Membro desde ${dataBR(m.data_membro ?? m.created_at.slice(0, 10))}`, 43, 121, { align: "center" });
-  if (carteirinha) doc.text(`Batismo águas: ${m.batismo_aguas ? dataBR(m.batismo_aguas) : "—"} · Espírito: ${m.batismo_espirito ? dataBR(m.batismo_espirito) : "—"}`, 43, 125, { align: "center" });
-  doc.text(`Nº ${m.id.slice(0, 8).toUpperCase()}`, 43, 132, { align: "center" });
+const nomeCompleto = (doc: jsPDF, nome: string, x: number, y: number, maxW: number, size: number) => {
+  let f = size; doc.setFontSize(f);
+  while (f > 6 && doc.getTextWidth(nome) > maxW) { f -= 0.5; doc.setFontSize(f); }
+  doc.text(nome, x, y);
+};
+
+function credencialPdf(m: Membro, igreja: string, qr: string): Blob {
+  const doc = new jsPDF({ unit: "mm", format: [86, 120] });
+  doc.setFillColor(13, 15, 20); doc.rect(0, 0, 86, 120, "F");
+  doc.setTextColor(212, 175, 55); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+  doc.text(igreja.toUpperCase(), 43, 10, { align: "center", maxWidth: 78 });
+  if (m.foto) { try { doc.addImage(m.foto, "JPEG", 31, 15, 24, 24); } catch { /* foto inválida */ } }
+  doc.setTextColor(255, 255, 255);
+  const w = 78; doc.setFontSize(12); let f = 12; while (f > 6 && doc.getTextWidth(m.nome) > w) { f -= 0.5; doc.setFontSize(f); }
+  doc.text(m.nome, 43, 46, { align: "center" });
+  doc.setFontSize(9); doc.setTextColor(212, 175, 55); doc.text(CARGO_LABEL[m.cargo] ?? m.cargo, 43, 52, { align: "center" });
+  doc.setFillColor(255, 255, 255); doc.roundedRect(21, 58, 44, 44, 2, 2, "F");
+  doc.addImage(qr, "PNG", 23, 60, 40, 40);
+  doc.setTextColor(180, 180, 180); doc.setFontSize(7); doc.text("Credencial de acesso", 43, 110, { align: "center" });
+  return doc.output("blob");
+}
+
+export function linhasFrente(m: Membro) {
+  return ([["CPF", m.cpf], ["Nascimento", m.nascimento ? dataBR(m.nascimento) : ""]] as [string, string][]).filter(([, v]) => v);
+}
+export function linhasVerso(m: Membro) {
+  return ([
+    ["Telefone", m.telefone], ["E-mail", m.email], ["Endereço", m.endereco],
+    ["Batismo nas águas", m.batismo_aguas ? dataBR(m.batismo_aguas) : ""],
+    ["Batismo no Espírito Santo", m.batismo_espirito ? dataBR(m.batismo_espirito) : ""],
+    ["Membro desde", m.data_membro ? dataBR(m.data_membro) : ""],
+  ] as [string, string][]).filter(([, v]) => v && v.trim());
+}
+
+function carteirinhaPdf(m: Membro, igreja: string, qr: string): Blob {
+  const doc = new jsPDF({ unit: "mm", format: [54, 86], orientation: "landscape" });
+  const fundo = () => { doc.setFillColor(13, 15, 20); doc.rect(0, 0, 86, 54, "F"); doc.setDrawColor(212, 175, 55); doc.setLineWidth(0.6); doc.rect(2, 2, 82, 50); };
+  // Frente
+  fundo(); doc.setFont("helvetica", "bold"); doc.setTextColor(212, 175, 55); doc.setFontSize(9);
+  doc.text(igreja.toUpperCase(), 43, 8, { align: "center", maxWidth: 78 });
+  doc.setFontSize(6); doc.setTextColor(200, 200, 200); doc.text("CARTEIRA DE MEMBRO", 43, 11.5, { align: "center" });
+  if (m.foto) { try { doc.addImage(m.foto, "JPEG", 5, 15, 24, 30); } catch { /* foto inválida */ } }
+  doc.setTextColor(150, 150, 150); doc.setFontSize(5.5); doc.text("NOME", 32, 18);
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); nomeCompleto(doc, m.nome, 32, 22, 50, 9);
+  let y = 28;
+  for (const [k, v] of linhasFrente(m)) { doc.setFontSize(5.5); doc.setTextColor(150, 150, 150); doc.text(k.toUpperCase(), 32, y); doc.setFontSize(8); doc.setTextColor(255, 255, 255); doc.text(v, 32, y + 3.5); y += 8; }
+  doc.setFontSize(5); doc.setTextColor(180, 180, 180); doc.text(`Nº ${m.id.slice(0, 8).toUpperCase()}`, 82, 49, { align: "right" });
+  // Verso
+  doc.addPage([54, 86], "landscape"); fundo();
+  y = 8;
+  for (const [k, v] of linhasVerso(m)) { doc.setFontSize(5); doc.setTextColor(150, 150, 150); doc.text(k.toUpperCase(), 5, y); doc.setFontSize(7); doc.setTextColor(255, 255, 255); doc.text(v, 5, y + 3, { maxWidth: 52 }); y += 6.5; }
+  doc.setFillColor(255, 255, 255); doc.roundedRect(60, 6, 22, 22, 1, 1, "F"); doc.addImage(qr, "PNG", 61, 7, 20, 20);
+  doc.setDrawColor(212, 175, 55); doc.setLineWidth(0.3); doc.line(48, 46, 82, 46);
+  doc.setFontSize(5.5); doc.setTextColor(200, 200, 200); doc.text("Assinatura do Pastor", 65, 49, { align: "center" });
   return doc.output("blob");
 }
 
@@ -61,14 +100,6 @@ export function MembroArea({ igreja, igrejaId }: { igreja: string; igrejaId: str
       if (r.error) throw r.error;
       return r.data;
     },
-  });
-  const foto = useMutation({
-    mutationFn: async (f: File) => {
-      const { error } = await supabase.rpc("atualizar_minha_foto" as never, { _foto: await reduzirFoto(f) } as never);
-      if (error) throw error;
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["meu-membro"] }); toast.success("Foto atualizada"); },
-    onError: (e) => toast.error(errMsg(e)),
   });
   if (error) return <Empty text={errMsg(error)} />;
   if (!m) return <p className="text-center text-sm text-muted-foreground">Carregando…</p>;
@@ -91,8 +122,8 @@ export function MembroArea({ igreja, igrejaId }: { igreja: string; igrejaId: str
           </button>
         ))}
       </div>
-      {aba === "credencial" && <Credencial m={m} igreja={igreja} igrejaId={igrejaId} onFoto={(f) => foto.mutate(f)} enviando={foto.isPending} />}
-      {aba === "carteirinha" && <Credencial carteirinha m={m} igreja={igreja} igrejaId={igrejaId} onFoto={(f) => foto.mutate(f)} enviando={foto.isPending} />}
+      {aba === "credencial" && <Credencial m={m} igreja={igreja} igrejaId={igrejaId} />}
+      {aba === "carteirinha" && <Credencial carteirinha m={m} igreja={igreja} igrejaId={igrejaId} />}
       {aba === "duvidas" && <Duvidas staff={false} nome={m.nome} />}
       {aba === "dados" && <MeusDados m={m} igreja={igreja} />}
       {aba === "cultos" && <ProximosCultos />}
@@ -102,43 +133,63 @@ export function MembroArea({ igreja, igrejaId }: { igreja: string; igrejaId: str
   );
 }
 
-function Credencial({ m, igreja, igrejaId, onFoto, enviando, carteirinha = false }: { carteirinha?: boolean; m: Membro; igreja: string; igrejaId: string; onFoto: (f: File) => void; enviando: boolean }) {
+function useQr(igrejaId: string, id: string) {
   const [qr, setQr] = useState("");
-  useEffect(() => { QRCode.toDataURL(codigoCredencial(igrejaId, m.id), { margin: 1, width: 320 }).then(setQr); }, [igrejaId, m.id]);
+  useEffect(() => { QRCode.toDataURL(codigoCredencial(igrejaId, id), { margin: 1, width: 320 }).then(setQr); }, [igrejaId, id]);
+  return qr;
+}
+
+function Credencial({ m, igreja, igrejaId, carteirinha = false }: { carteirinha?: boolean; m: Membro; igreja: string; igrejaId: string }) {
+  const qr = useQr(igrejaId, m.id);
   const nomeArq = `${carteirinha ? "carteirinha" : "credencial"}-${m.nome.toLowerCase().replace(/\s+/g, "-")}.pdf`;
+  const pdf = () => (carteirinha ? carteirinhaPdf(m, igreja, qr) : credencialPdf(m, igreja, qr));
+  const foto = m.foto ? <img src={m.foto} alt={m.nome} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center bg-secondary text-3xl font-bold text-primary">{m.nome.slice(0, 1)}</div>;
   return (
     <div className="space-y-3">
-      <Card className="border-primary/40 bg-gradient-to-b from-card to-secondary text-center">
-        {carteirinha ? <><p className="text-base font-bold uppercase tracking-widest text-primary">{igreja}</p><p className="text-xs text-muted-foreground">Carteira de membro</p></>
-          : <><p className="text-xs font-bold uppercase tracking-widest text-primary">{APP_NAME}</p><p className="text-sm text-muted-foreground">{igreja}</p></>}
-        <div className="my-3 flex justify-center">
-          {m.foto ? <img src={m.foto} alt={m.nome} className="h-28 w-28 rounded-full border-4 border-primary object-cover" />
-            : <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-primary bg-secondary text-4xl font-bold text-primary">{m.nome.slice(0, 1)}</div>}
-        </div>
-        <h2 className="text-xl font-bold">{m.nome}</h2>
-        <p className="text-sm text-primary">{CARGO_LABEL[m.cargo] ?? m.cargo}{m.ministerio ? ` · ${m.ministerio}` : ""}</p>
-        {qr && <img src={qr} alt="QR Code da credencial" className="mx-auto mt-4 h-40 w-40 rounded-xl bg-foreground p-2" />}
-        <p className="mt-2 text-xs text-muted-foreground">Nº {m.id.slice(0, 8).toUpperCase()} · membro desde {dataBR(m.data_membro ?? m.created_at.slice(0, 10))}</p>
-        {carteirinha && <p className="mt-1 text-xs text-muted-foreground">Batismo nas águas: {m.batismo_aguas ? dataBR(m.batismo_aguas) : "—"} · No Espírito Santo: {m.batismo_espirito ? dataBR(m.batismo_espirito) : "—"}</p>}
-      </Card>
-      <label className="block cursor-pointer rounded-xl border border-dashed border-primary/50 p-3 text-center text-sm text-primary">
-        <Upload className="mr-1 inline h-4 w-4" />{enviando ? "Enviando…" : m.foto ? "Trocar minha foto" : "Adicionar minha foto"}
-        <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFoto(f); }} />
-      </label>
+      {carteirinha ? <>
+        <p className="text-xs font-semibold uppercase text-muted-foreground">Frente</p>
+        <Card className="border-primary/50 p-3">
+          <p className="text-center text-sm font-bold uppercase tracking-widest text-primary">{igreja}</p>
+          <p className="mb-2 text-center text-[10px] uppercase text-muted-foreground">Carteira de membro</p>
+          <div className="flex gap-3">
+            <div className="h-28 w-22 shrink-0 overflow-hidden rounded-md border-2 border-primary" style={{ width: "5.5rem" }}>{foto}</div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-[10px] uppercase text-muted-foreground">Nome</p>
+              <p className="truncate whitespace-nowrap text-sm font-bold">{m.nome}</p>
+              {linhasFrente(m).map(([k, v]) => <div key={k}><p className="text-[10px] uppercase text-muted-foreground">{k}</p><p className="text-sm font-semibold">{v}</p></div>)}
+            </div>
+          </div>
+        </Card>
+        <p className="text-xs font-semibold uppercase text-muted-foreground">Verso</p>
+        <Card className="border-primary/50 p-3">
+          <div className="flex gap-3">
+            <div className="min-w-0 flex-1 space-y-1">{linhasVerso(m).map(([k, v]) => <div key={k}><p className="text-[10px] uppercase text-muted-foreground">{k}</p><p className="break-words text-sm font-semibold">{v}</p></div>)}</div>
+            {qr && <img src={qr} alt="QR Code de validação" className="h-24 w-24 shrink-0 rounded-md bg-foreground p-1" />}
+          </div>
+          <div className="mt-6 border-t border-primary pt-1 text-center text-[10px] text-muted-foreground">Assinatura do Pastor</div>
+        </Card>
+      </> : (
+        <Card className="border-primary/40 bg-gradient-to-b from-card to-secondary text-center">
+          <p className="text-sm font-bold uppercase tracking-widest text-primary">{igreja}</p>
+          <div className="mx-auto my-3 h-28 w-28 overflow-hidden rounded-full border-4 border-primary">{foto}</div>
+          <h2 className="text-xl font-bold">{m.nome}</h2>
+          <p className="text-sm text-primary">{CARGO_LABEL[m.cargo] ?? m.cargo}</p>
+          {qr && <img src={qr} alt="QR Code da credencial" className="mx-auto mt-4 h-40 w-40 rounded-xl bg-foreground p-2" />}
+          <p className="mt-2 text-xs text-muted-foreground">Credencial de acesso rápido</p>
+        </Card>
+      )}
       <div className="grid grid-cols-2 gap-2">
-        <Btn disabled={!qr} onClick={() => baixar(credencialPdf(m, igreja, qr, carteirinha), nomeArq)}><Download className="h-4 w-4" />Baixar PDF</Btn>
-        <Btn variant="whats" disabled={!qr} onClick={() => compartilharPdf(credencialPdf(m, igreja, qr, carteirinha), nomeArq, carteirinha ? "Minha carteirinha" : "Minha credencial")}><Send className="h-4 w-4" />Enviar PDF</Btn>
+        <Btn disabled={!qr} onClick={() => baixar(pdf(), nomeArq)}><Download className="h-4 w-4" />Baixar PDF</Btn>
+        <Btn variant="whats" disabled={!qr} onClick={() => compartilharPdf(pdf(), nomeArq, carteirinha ? "Minha carteirinha" : "Minha credencial")}><Send className="h-4 w-4" />Enviar PDF</Btn>
       </div>
     </div>
   );
 }
 
 function MeusDados({ m, igreja }: { m: Membro; igreja: string }) {
-  const linhas: [string, string][] = [
-    ["Nome", m.nome], ["Telefone", m.telefone || "—"], ["Cargo", CARGO_LABEL[m.cargo] ?? m.cargo], ["Ministério", m.ministerio || "—"],
-    ["Nascimento", m.nascimento ? dataBR(m.nascimento) : "—"], ["Membro desde", m.data_membro ? dataBR(m.data_membro) : "—"],
-    ["Batismo nas águas", m.batismo_aguas ? dataBR(m.batismo_aguas) : "—"], ["Batismo no Espírito Santo", m.batismo_espirito ? dataBR(m.batismo_espirito) : "—"], ["Endereço", m.endereco || "—"], ["Igreja", igreja],
-  ];
+  const linhas = ([["Nome", m.nome], ["CPF", m.cpf], ["E-mail", m.email], ["Telefone", m.telefone], ["Cargo", CARGO_LABEL[m.cargo] ?? m.cargo], ["Ministério", m.ministerio],
+    ["Nascimento", m.nascimento ? dataBR(m.nascimento) : ""], ["Membro desde", m.data_membro ? dataBR(m.data_membro) : ""],
+    ["Batismo nas águas", m.batismo_aguas ? dataBR(m.batismo_aguas) : ""], ["Batismo no Espírito Santo", m.batismo_espirito ? dataBR(m.batismo_espirito) : ""], ["Endereço", m.endereco], ["Igreja", igreja]] as [string, string][]).filter(([, v]) => v && v.trim());
   return (
     <Card>
       <dl className="space-y-2">{linhas.map(([k, v]) => <div key={k} className="flex justify-between gap-3 border-b border-border pb-2 text-sm"><dt className="text-muted-foreground">{k}</dt><dd className="text-right font-semibold">{v}</dd></div>)}</dl>
