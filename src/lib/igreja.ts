@@ -126,3 +126,15 @@ export function monthRange(ano: number, mes: number) {
   const fim = `${ano}-${String(mes).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
   return { ini, fim };
 }
+
+export function mascararCpf(v: string) {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  return d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
+export function cpfValido(v: string) {
+  const d = v.replace(/\D/g, "");
+  if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
+  const dig = (n: number) => { let s = 0; for (let i = 0; i < n; i++) s += Number(d[i]) * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+  return dig(9) === Number(d[9]) && dig(10) === Number(d[10]);
+}
