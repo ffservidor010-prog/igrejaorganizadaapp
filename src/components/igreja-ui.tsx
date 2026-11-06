@@ -4,7 +4,8 @@ import { MESES, waLink } from "@/lib/igreja";
 import type { Tables } from "@/integrations/supabase/types";
 type Membro = Tables<"membros">;
 export const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-export const errMsg = (e: unknown) => (e instanceof Error ? e.message : (e as { message?: string })?.message ?? "Erro");
+const rawMsg = (e: unknown) => (e instanceof Error ? e.message : (e as { message?: string })?.message ?? "Erro");
+export const errMsg = (e: unknown) => { const m = rawMsg(e); if (m.includes("membros_cpf_igreja_unique")) return "Já existe um membro com este CPF nesta igreja."; if (m.includes("membros_email_igreja_unique")) return "Já existe um membro com este e-mail nesta igreja."; return m; };
 
 /* ---------- UI básicos ---------- */
 export function Btn({ children, variant = "primary", className = "", ...p }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" | "danger" | "whats" | "info" }) {
