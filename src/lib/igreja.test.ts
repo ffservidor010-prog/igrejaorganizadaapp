@@ -38,3 +38,9 @@ describe("Ata mensal", () => {
     expect(monthRange(2026, 2).fim).toBe("2026-02-28");
   });
 });
+
+import { cpfValido, mascararCpf } from "./igreja";
+describe("CPF", () => {
+  it("aplica a máscara 000.000.000-00", () => { expect(mascararCpf("52998224725")).toBe("529.982.247-25"); });
+  it("valida dígitos", () => { expect(cpfValido("529.982.247-25")).toBe(true); expect(cpfValido("111.111.111-11")).toBe(false); expect(cpfValido("529.982.247-24")).toBe(false); });
+});

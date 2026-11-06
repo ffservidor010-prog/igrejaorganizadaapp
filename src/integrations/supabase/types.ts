@@ -422,8 +422,10 @@ export type Database = {
           batismo_aguas: string | null
           batismo_espirito: string | null
           cargo: string
+          cpf: string
           created_at: string
           data_membro: string | null
+          email: string
           endereco: string
           foto: string | null
           id: string
@@ -440,8 +442,10 @@ export type Database = {
           batismo_aguas?: string | null
           batismo_espirito?: string | null
           cargo?: string
+          cpf?: string
           created_at?: string
           data_membro?: string | null
+          email?: string
           endereco?: string
           foto?: string | null
           id?: string
@@ -458,8 +462,10 @@ export type Database = {
           batismo_aguas?: string | null
           batismo_espirito?: string | null
           cargo?: string
+          cpf?: string
           created_at?: string
           data_membro?: string | null
+          email?: string
           endereco?: string
           foto?: string | null
           id?: string
@@ -721,6 +727,16 @@ export type Database = {
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       meu_membro: { Args: never; Returns: string }
       minha_igreja: { Args: never; Returns: string }
+      validar_membro: {
+        Args: { _id: string; _igreja: string }
+        Returns: {
+          ativo: boolean
+          cpf: string
+          foto: string
+          igreja: string
+          nome: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "pastor" | "lider" | "membro"

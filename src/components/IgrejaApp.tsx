@@ -11,6 +11,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import logo from "@/assets/logo.jpg";
 import {
   APP_NAME, CARGOS, CARGO_LABEL, FUNCOES, MESES, TIPOS_CULTO, dataBR, escalaMensagem, gerarTextoAta, monthRange, waLink,
+  cpfValido, mascararCpf,
 } from "@/lib/igreja";
 import { birthdaysFromPeople, birthdaysInMonth, localDateKey, sumValues, totalsByPerson } from "@/lib/church-planning";
 import { ataDoc, ataPdf, baixar, compartilharPdf } from "@/lib/ata-export";
@@ -110,7 +111,7 @@ function Auth() {
             {mode === "up" && <>
               <IgrejaEscolha value={ig} onChange={setIg} />
               <Field label="Nome"><input required className={inputCls} value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} /></Field>
-              <Field label="Telefone com DDD"><input required className={inputCls} inputMode="tel" placeholder="(96) 99999-9999" value={f.telefone} onChange={(e) => setF({ ...f, telefone: e.target.value })} /></Field>
+            <Field label="Telefone com DDD"><input required className={inputCls} inputMode="tel" placeholder="(96) 99999-9999" value={f.telefone} onChange={(e) => setF({ ...f, telefone: e.target.value })} /></Field>
             </>}
             <Field label="E-mail"><input required type="email" className={inputCls} value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
             <Field label="Senha"><input required type="password" minLength={6} className={inputCls} value={f.senha} onChange={(e) => setF({ ...f, senha: e.target.value })} /></Field>
@@ -246,7 +247,7 @@ async function fotoParaDataUrl(file: File) {
   ctx.drawImage(img, (s - img.width * r) / 2, (s - img.height * r) / 2, img.width * r, img.height * r);
   return c.toDataURL("image/jpeg", 0.8);
 }
-const membroVazio = { nome: "", telefone: "", cargo: "membro", ministerio: "", foto: null as string | null, ativo: true, nascimento: "", data_membro: "", batismo_aguas: "", batismo_espirito: "", endereco: "", observacao: "" };
+const membroVazio = { nome: "", cpf: "", email: "", telefone: "", cargo: "membro", ministerio: "", foto: null as string | null, ativo: true, nascimento: "", data_membro: "", batismo_aguas: "", batismo_espirito: "", endereco: "", observacao: "" };
 
 function MembrosScreen({ staff }: { staff: boolean }) {
   const { data: membros = [], isLoading } = useRows<Membro>("membros", "nome");
@@ -279,7 +280,8 @@ function MembrosScreen({ staff }: { staff: boolean }) {
         <Modal title={edit.id ? "Editar membro" : "Adicionar membro"} onClose={() => setEdit(null)}>
           <form className="space-y-3" onSubmit={(e) => {
             e.preventDefault();
-            const v = { ...edit.v, nascimento: edit.v.nascimento || null, data_membro: edit.v.data_membro || null, batismo_aguas: edit.v.batismo_aguas || null, batismo_espirito: edit.v.batismo_espirito || null };
+            if (edit.v.cpf && !cpfValido(edit.v.cpf)) { toast.error("CPF inválido"); return; }
+            const v = { ...edit.v, email: edit.v.email.trim().toLowerCase(), nascimento: edit.v.nascimento || null, data_membro: edit.v.data_membro || null, batismo_aguas: edit.v.batismo_aguas || null, batismo_espirito: edit.v.batismo_espirito || null };
             save.mutate({ id: edit.id, values: v }, { onSuccess: () => setEdit(null) });
           }}>
             <div className="flex items-center gap-3">
@@ -287,6 +289,10 @@ function MembrosScreen({ staff }: { staff: boolean }) {
               <label className="cursor-pointer text-sm text-primary">Escolher foto<input type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setEdit({ ...edit, v: { ...edit.v, foto: await fotoParaDataUrl(f) } }); }} /></label>
             </div>
             <Field label="Nome"><input required className={inputCls} value={edit.v.nome} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, nome: e.target.value } })} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="CPF"><input inputMode="numeric" placeholder="000.000.000-00" className={inputCls} value={edit.v.cpf} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, cpf: mascararCpf(e.target.value) } })} /></Field>
+              <Field label="E-mail (login do membro)"><input type="email" className={inputCls} value={edit.v.email} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, email: e.target.value } })} /></Field>
+            </div>
             <Field label="Telefone com DDD"><input required inputMode="tel" placeholder="(96) 99999-9999" className={inputCls} value={edit.v.telefone} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, telefone: e.target.value } })} /></Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Cargo"><select className={inputCls} value={edit.v.cargo} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, cargo: e.target.value } })}>{CARGOS.map((c) => <option key={c} value={c}>{CARGO_LABEL[c]}</option>)}</select></Field>
@@ -466,13 +472,13 @@ function FinanceiroScreen({ tipo, staff }: { tipo: "dizimos" | "ofertas"; staff:
 /* ---------- Atas ---------- */
 type AtaForm = { id?: string; igreja: string; mes: number; ano: number; data_reuniao: string; horario: string; local: string; presidente: string; secretario: string; pauta: string; presentes: string; decisoes: string; texto_completo: string };
 
-function AtasScreen({ staff }: { staff: boolean }) {
+function AtasScreen({ staff, igreja }: { staff: boolean; igreja: string }) {
   const { data: atas = [] } = useRows<Ata>("atas", "criado_em", false);
   const save = useSave("atas"); const del = useRemove("atas");
   const [edit, setEdit] = useState<AtaForm | null>(null);
   const [gerando, setGerando] = useState(false);
   const now = new Date();
-  const novo = (): AtaForm => ({ igreja: localStorage.getItem("igreja-nome") || "Minha Igreja", mes: now.getMonth() + 1, ano: now.getFullYear(), data_reuniao: localDateKey(now), horario: "19:00", local: "", presidente: "", secretario: "", pauta: "", presentes: "", decisoes: "", texto_completo: "" });
+  const novo = (): AtaForm => ({ igreja: igreja || APP_NAME, mes: now.getMonth() + 1, ano: now.getFullYear(), data_reuniao: localDateKey(now), horario: "19:00", local: "", presidente: "", secretario: "", pauta: "", presentes: "", decisoes: "", texto_completo: "" });
   const sorted = [...atas].sort((a, b) => b.ano - a.ano || b.mes - a.mes);
 
   const gerar = async () => {
@@ -546,7 +552,6 @@ function AtasScreen({ staff }: { staff: boolean }) {
           <form className="space-y-3" onSubmit={(e) => {
             e.preventDefault();
             if (!edit.texto_completo.trim()) { toast.error("Gere ou escreva o texto da ata"); return; }
-            localStorage.setItem("igreja-nome", edit.igreja);
             const { id, igreja: _i, horario: _h, ...values } = edit;
             save.mutate({ id, values: { ...values, data_reuniao: values.data_reuniao || null } }, { onSuccess: () => setEdit(null) });
           }}>
@@ -681,10 +686,10 @@ export function IgrejaApp() {
           {screen === "duvidas" && <Duvidas staff />}
           {screen === "home" && <Home go={setScreen} nome={me?.nome ?? ""} igreja={me.igreja} staff={staff} admin={admin} />}
           {screen === "escala" && <EscalaScreen staff={staff} admin={admin} />}
-          {screen === "membros" && <MembrosScreen staff={staff} />}
+          {screen === "membros" && <MembrosScreen staff={admin} />}
           {screen === "eventos" && <EventosScreen staff={staff} admin={admin} />}
           {screen === "avisos" && <AvisosScreen staff={staff} />}
-          {screen === "atas" && <AtasScreen staff={staff} />}
+          {screen === "atas" && <AtasScreen staff={staff} igreja={me.igreja} />}
           {screen === "aniv" && <AnivScreen />}
           {screen === "dizimos" && admin && <FinanceiroScreen tipo="dizimos" staff={admin} />}
           {screen === "ofertas" && admin && <FinanceiroScreen tipo="ofertas" staff={admin} />}
