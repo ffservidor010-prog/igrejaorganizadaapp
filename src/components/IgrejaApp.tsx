@@ -111,10 +111,6 @@ function Auth() {
             {mode === "up" && <>
               <IgrejaEscolha value={ig} onChange={setIg} />
               <Field label="Nome"><input required className={inputCls} value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} /></Field>
-              <div className="grid grid-cols-2 gap-3">
-              <Field label="CPF"><input inputMode="numeric" placeholder="000.000.000-00" className={inputCls} value={edit.v.cpf} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, cpf: mascararCpf(e.target.value) } })} /></Field>
-              <Field label="E-mail (login do membro)"><input type="email" className={inputCls} value={edit.v.email} onChange={(e) => setEdit({ ...edit, v: { ...edit.v, email: e.target.value } })} /></Field>
-            </div>
             <Field label="Telefone com DDD"><input required className={inputCls} inputMode="tel" placeholder="(96) 99999-9999" value={f.telefone} onChange={(e) => setF({ ...f, telefone: e.target.value })} /></Field>
             </>}
             <Field label="E-mail"><input required type="email" className={inputCls} value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
