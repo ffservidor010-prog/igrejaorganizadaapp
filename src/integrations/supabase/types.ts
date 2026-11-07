@@ -99,6 +99,35 @@ export type Database = {
           },
         ]
       }
+      cargos: {
+        Row: {
+          created_at: string
+          id: string
+          igreja_id: string
+          nome: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          igreja_id?: string
+          nome: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          igreja_id?: string
+          nome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cargos_igreja_id_fkey"
+            columns: ["igreja_id"]
+            isOneToOne: false
+            referencedRelation: "igrejas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cultos: {
         Row: {
           created_at: string
@@ -398,6 +427,7 @@ export type Database = {
           created_at: string
           criado_por: string | null
           id: string
+          logo_url: string | null
           nome: string
         }
         Insert: {
@@ -405,6 +435,7 @@ export type Database = {
           created_at?: string
           criado_por?: string | null
           id?: string
+          logo_url?: string | null
           nome: string
         }
         Update: {
@@ -412,6 +443,7 @@ export type Database = {
           created_at?: string
           criado_por?: string | null
           id?: string
+          logo_url?: string | null
           nome?: string
         }
         Relationships: []
@@ -487,6 +519,41 @@ export type Database = {
           },
         ]
       }
+      modelos_carta: {
+        Row: {
+          created_at: string
+          id: string
+          igreja_id: string
+          texto: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          igreja_id?: string
+          texto: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          igreja_id?: string
+          texto?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modelos_carta_igreja_id_fkey"
+            columns: ["igreja_id"]
+            isOneToOne: false
+            referencedRelation: "igrejas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ofertas: {
         Row: {
           created_at: string
@@ -522,39 +589,111 @@ export type Database = {
           },
         ]
       }
+      pedidos_carta: {
+        Row: {
+          cidade: string
+          created_at: string
+          id: string
+          igreja_destino: string
+          igreja_id: string
+          membro_id: string
+          motivo: string
+          respondido_em: string | null
+          resposta: string
+          status: string
+          tipo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cidade?: string
+          created_at?: string
+          id?: string
+          igreja_destino?: string
+          igreja_id?: string
+          membro_id: string
+          motivo?: string
+          respondido_em?: string | null
+          resposta?: string
+          status?: string
+          tipo: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cidade?: string
+          created_at?: string
+          id?: string
+          igreja_destino?: string
+          igreja_id?: string
+          membro_id?: string
+          motivo?: string
+          respondido_em?: string | null
+          resposta?: string
+          status?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedidos_carta_igreja_id_fkey"
+            columns: ["igreja_id"]
+            isOneToOne: false
+            referencedRelation: "igrejas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_carta_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pedidos_oracao: {
         Row: {
           created_at: string
           data: string
           id: string
           igreja_id: string
+          motivo: string
           nome: string
           orado_em: string | null
           pedido: string
+          resposta: string
           status: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           data?: string
           id?: string
           igreja_id?: string
+          motivo?: string
           nome: string
           orado_em?: string | null
           pedido?: string
+          resposta?: string
           status?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           data?: string
           id?: string
           igreja_id?: string
+          motivo?: string
           nome?: string
           orado_em?: string | null
           pedido?: string
+          resposta?: string
           status?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -727,6 +866,7 @@ export type Database = {
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       meu_membro: { Args: never; Returns: string }
       minha_igreja: { Args: never; Returns: string }
+      salvar_logo: { Args: { _url: string }; Returns: undefined }
       validar_membro: {
         Args: { _id: string; _igreja: string }
         Returns: {
