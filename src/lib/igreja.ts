@@ -134,15 +134,20 @@ export const TIPOS_CARTA = [
 export type TipoCarta = (typeof TIPOS_CARTA)[number]["id"];
 export const CARTA_LABEL: Record<string, string> = { mudanca: "Carta de Mudança", recomendacao: "Carta de Recomendação" };
 
-/** Preenche os campos [entre colchetes] do modelo. Linhas que ficam vazias (campo sem valor) são removidas. */
+/** Preenche os campos [entre colchetes] do modelo. Rótulos sem valor (ex.: "Motivo:" vazio) são removidos; nunca sobra "—". */
 export function preencherModeloCarta(modelo: string, dados: Record<string, string>) {
-  const preenchido = modelo.replace(/\[([^\]]+)\]/g, (_, chave: string) => dados[chave.trim().toLowerCase()] ?? "");
-  return preenchido
+  const norm = Object.fromEntries(Object.entries(dados).map(([k, v]) => [k.toLowerCase(), v ?? ""]));
+  return modelo
     .split("\n")
-    .filter((l) => l.trim() !== "" || false)
-    .map((l) => l.replace(/^(Motivo|À Igreja|Recomendamos)[^\n]*$/i, (l2) => l2).trimEnd())
-    .filter((l, i, arr) => !(l.trim() === "" && arr[i - 1]?.trim() === ""))
-    .filter((l) => !/^(Motivo:|À Igreja\s*,|À Igreja\s*em|,)\s*$/.test(l.trim()))
+    .map((l) => l.replace(/\[([^\]]+)\]/g, (_, c: string) => norm[c.trim().toLowerCase()] ?? ""))
+    .map((l) => l.replace(/\s+([,.;:])/g, "$1"))
+    .filter((l) => {
+      const t = l.trim();
+      if (!t) return true;
+      if (/^[A-Za-zÀ-ÿ() ]+:\s*[,.]?\s*$/.test(t)) return false;
+      if (/^À Igreja\s*,?\s*(em\s*)?[,.]?\s*$/i.test(t)) return false;
+      return true;
+    })
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
