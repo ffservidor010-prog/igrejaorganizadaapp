@@ -6,10 +6,11 @@ import { jsPDF } from "jspdf";
 import { BadgeCheck, CalendarDays, Download, Image as ImageIcon, Send, Trash2, User, Plus, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { APP_NAME, CARGO_LABEL, dataBR } from "@/lib/igreja";
+import { APP_NAME, CARGO_LABEL, TIPOS_CARTA, CARTA_LABEL, dataBR, preencherModeloCarta } from "@/lib/igreja";
 import { dataDoCulto } from "@/lib/administracao";
 import { localDateKey } from "@/lib/church-planning";
 import { baixar, compartilharPdf } from "@/lib/ata-export";
+import { cartaPdf } from "@/lib/carta-pdf";
 import { Btn, Card, Empty, Field, Modal, Avatar, inputCls, errMsg } from "./igreja-ui";
 
 type Membro = Tables<"membros">;
@@ -35,11 +36,12 @@ const nomeCompleto = (doc: jsPDF, nome: string, x: number, y: number, maxW: numb
   doc.text(nome, x, y);
 };
 
-function credencialPdf(m: Membro, igreja: string, qr: string): Blob {
+function credencialPdf(m: Membro, igreja: string, qr: string, logoUrl?: string | null): Blob {
   const doc = new jsPDF({ unit: "mm", format: [86, 120] });
   doc.setFillColor(13, 15, 20); doc.rect(0, 0, 86, 120, "F");
   doc.setTextColor(212, 175, 55); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-  doc.text(igreja.toUpperCase(), 43, 10, { align: "center", maxWidth: 78 });
+  if (logoUrl) { try { doc.addImage(logoUrl, "JPEG", 36, 2, 14, 14); } catch { /* logo inválida */ } }
+  doc.text(igreja.toUpperCase(), 43, logoUrl ? 21 : 10, { align: "center", maxWidth: 78 });
   if (m.foto) { try { doc.addImage(m.foto, "JPEG", 31, 15, 24, 24); } catch { /* foto inválida */ } }
   doc.setTextColor(255, 255, 255);
   const w = 78; doc.setFontSize(12); let f = 12; while (f > 6 && doc.getTextWidth(m.nome) > w) { f -= 0.5; doc.setFontSize(f); }
@@ -63,12 +65,13 @@ export function linhasVerso(m: Membro) {
   ] as [string, string][]).filter(([, v]) => v && v.trim());
 }
 
-function carteirinhaPdf(m: Membro, igreja: string, qr: string): Blob {
+function carteirinhaPdf(m: Membro, igreja: string, qr: string, logoUrl?: string | null): Blob {
   const doc = new jsPDF({ unit: "mm", format: [54, 86], orientation: "landscape" });
   const fundo = () => { doc.setFillColor(13, 15, 20); doc.rect(0, 0, 86, 54, "F"); doc.setDrawColor(212, 175, 55); doc.setLineWidth(0.6); doc.rect(2, 2, 82, 50); };
   // Frente
   fundo(); doc.setFont("helvetica", "bold"); doc.setTextColor(212, 175, 55); doc.setFontSize(9);
-  doc.text(igreja.toUpperCase(), 43, 8, { align: "center", maxWidth: 78 });
+  if (logoUrl) { try { doc.addImage(logoUrl, "JPEG", 4, 3.5, 9, 9); } catch { /* logo inválida */ } }
+  doc.text(igreja.toUpperCase(), 43, 8, { align: "center", maxWidth: 64 });
   doc.setFontSize(6); doc.setTextColor(200, 200, 200); doc.text("CARTEIRA DE MEMBRO", 43, 11.5, { align: "center" });
   if (m.foto) { try { doc.addImage(m.foto, "JPEG", 5, 15, 24, 30); } catch { /* foto inválida */ } }
   doc.setTextColor(150, 150, 150); doc.setFontSize(5.5); doc.text("NOME", 32, 18);
