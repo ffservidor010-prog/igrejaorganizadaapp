@@ -39,7 +39,26 @@ describe("Ata mensal", () => {
   });
 });
 
-import { cpfValido, mascararCpf } from "./igreja";
+import { cpfValido, mascararCpf, preencherModeloCarta } from "./igreja";
+
+describe("Modelo de carta", () => {
+  const modelo = "CARTA DE MUDANÇA\n\nÀ Igreja [igreja de destino], em [cidade].\n\nApresentamos [nome do membro], CPF [CPF], membro desde [Membro desde].\n\nMotivo: [motivo]\n\n[cidade], [data].";
+  it("preenche todos os campos", () => {
+    const t = preencherModeloCarta(modelo, { "igreja de destino": "Igreja Central", cidade: "Oiapoque", "nome do membro": "Ana", cpf: "529.982.247-25", "membro desde": "01/01/2020", motivo: "Mudança de cidade", data: "06/11/2026" });
+    expect(t).toContain("À Igreja Igreja Central, em Oiapoque.");
+    expect(t).toContain("Apresentamos Ana, CPF 529.982.247-25, membro desde 01/01/2020.");
+    expect(t).toContain("Motivo: Mudança de cidade");
+    expect(t).toContain("Oiapoque, 06/11/2026.");
+    expect(t).not.toContain("[");
+  });
+  it("remove rótulos sem valor e não deixa travessão", () => {
+    const t = preencherModeloCarta(modelo, { "nome do membro": "Ana", cpf: "529.982.247-25", "membro desde": "01/01/2020", data: "06/11/2026" });
+    expect(t).not.toContain("Motivo");
+    expect(t).not.toContain("À Igreja");
+    expect(t).not.toContain("—");
+    expect(t).toContain("Apresentamos Ana");
+  });
+});
 describe("CPF", () => {
   it("aplica a máscara 000.000.000-00", () => { expect(mascararCpf("52998224725")).toBe("529.982.247-25"); });
   it("valida dígitos", () => { expect(cpfValido("529.982.247-25")).toBe(true); expect(cpfValido("111.111.111-11")).toBe(false); expect(cpfValido("529.982.247-24")).toBe(false); });
