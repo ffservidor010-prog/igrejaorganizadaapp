@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Tables } from "@/integrations/supabase/types";
 
-const table = z.enum(["membros", "escalas", "eventos", "galeria", "atas", "dizimos", "ofertas", "avisos", "cultos", "setores", "visitantes", "pedidos_oracao"]);
+const table = z.enum(["membros", "escalas", "eventos", "galeria", "atas", "dizimos", "ofertas", "avisos", "cultos", "setores", "visitantes", "pedidos_oracao", "cargos", "modelos_carta", "pedidos_carta"]);
 export type TableName = z.infer<typeof table>;
 export const listarRegistros = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator(z.object({ table, order: z.string(), asc: z.boolean() }))

@@ -127,6 +127,32 @@ export function monthRange(ano: number, mes: number) {
   return { ini, fim };
 }
 
+export const TIPOS_CARTA = [
+  { id: "mudanca", label: "Carta de Mudança" },
+  { id: "recomendacao", label: "Carta de Recomendação" },
+] as const;
+export type TipoCarta = (typeof TIPOS_CARTA)[number]["id"];
+export const CARTA_LABEL: Record<string, string> = { mudanca: "Carta de Mudança", recomendacao: "Carta de Recomendação" };
+
+/** Preenche os campos [entre colchetes] do modelo. Rótulos sem valor (ex.: "Motivo:" vazio) são removidos; nunca sobra "—". */
+export function preencherModeloCarta(modelo: string, dados: Record<string, string>) {
+  const norm = Object.fromEntries(Object.entries(dados).map(([k, v]) => [k.toLowerCase(), v ?? ""]));
+  return modelo
+    .split("\n")
+    .map((l) => l.replace(/\[([^\]]+)\]/g, (_, c: string) => norm[c.trim().toLowerCase()] ?? ""))
+    .map((l) => l.replace(/\s+([,.;:])/g, "$1"))
+    .filter((l) => {
+      const t = l.trim();
+      if (!t) return true;
+      if (/^[A-Za-zÀ-ÿ() ]+:\s*[,.]?\s*$/.test(t)) return false;
+      if (/^À Igreja\s*,?\s*(em\s*)?[,.]?\s*$/i.test(t)) return false;
+      return true;
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function mascararCpf(v: string) {
   const d = v.replace(/\D/g, "").slice(0, 11);
   return d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");

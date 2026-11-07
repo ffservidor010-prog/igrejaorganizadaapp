@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.salvar_logo(text) FROM anon;
