@@ -696,7 +696,7 @@ export function IgrejaApp() {
           <div className="mb-4 flex items-center justify-between">
             {screen !== "home" && !semIgreja && staff
               ? <button onClick={() => setScreen("home")} className="flex items-center gap-1 text-sm text-primary"><ArrowLeft className="h-4 w-4" />Início</button>
-              : <span className="truncate text-xs uppercase tracking-widest text-muted-foreground">{me?.igreja || APP_NAME}</span>}
+              : <span className="flex items-center gap-2 truncate text-xs uppercase tracking-widest text-muted-foreground">{localStorage.getItem("logo_igreja_" + (me?.igreja ?? "").trim().toLowerCase()) ? <img src={localStorage.getItem("logo_igreja_" + (me?.igreja ?? "").trim().toLowerCase())!} className="h-8 w-8 rounded-full object-cover" /> : null}{me?.igreja || APP_NAME}</span>
             <button onClick={sair} className="flex items-center gap-1 text-sm text-muted-foreground"><LogOut className="h-4 w-4" />Sair</button>
           </div>
           {semIgreja ? (
