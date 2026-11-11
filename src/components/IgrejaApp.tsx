@@ -29,7 +29,7 @@ import { dataDoCulto, mensagemEscala, relatorioDizimos } from "@/lib/administrac
 import { MembroArea, Galeria, Duvidas } from "./membro-area";
 
 /* ---------- Login ---------- */
-function IgrejaEscolha({ value: { tipo: "nova" | "convite"; igreja: string; codigo: string; logo?: string }; onChange: (v: { tipo: "nova" | "convite"; igreja: string; codigo: string; logo?: string }) => void }) {
+function IgrejaEscolha({ value, onChange }: { value: { tipo: "nova" | "convite"; igreja: string; codigo: string; logo?: string }; onChange: (v: { tipo: "nova" | "convite"; igreja: string; codigo: string; logo?: string }) => void }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
