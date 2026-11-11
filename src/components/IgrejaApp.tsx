@@ -4,6 +4,7 @@ import { toast, Toaster } from "sonner";
 import {
   ArrowLeft, CalendarDays, Users, PartyPopper, Megaphone, FileText, Cake, HandCoins, Gift, Shield, LogOut,
   Plus, Trash2, Pencil, Eye, MessageCircle, Mail, Download, Check, ChevronLeft, ChevronRight, Search, Sparkles, Save,
+  Sun, Moon, BookOpen, Bell, Heart,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,7 +56,6 @@ async function vincularIgreja(v: { tipo: "nova" | "convite"; igreja: string; cod
     : await supabase.rpc("entrar_igreja", { _codigo: v.codigo });
   if (error) throw error;
   if (v.tipo === "nova" && v.logo) { try { localStorage.setItem("logo_igreja_" + v.igreja.trim().toLowerCase(), v.logo); } catch {} }
-}
 }
 
 function Onboarding({ onDone, inicial }: { onDone: () => void; inicial: { tipo: "nova" | "convite"; igreja: string; codigo: string } }) {
@@ -133,44 +133,73 @@ function Auth() {
   );
 }
 
-/* ---------- Início ---------- */
-function Home({ go, nome, igreja, staff, admin }: { go: (s: Screen) => void; nome: string; igreja: string; staff: boolean; admin: boolean }) {
-  const main: { id: Screen; label: string; icon: typeof Users }[] = [
-    { id: "escala", label: "Escala", icon: CalendarDays },
-    { id: "membros", label: "Membros", icon: Users },
-    { id: "eventos", label: "Eventos", icon: PartyPopper },
-    { id: "avisos", label: "Avisos", icon: Megaphone },
-    { id: "atas", label: "Ata Mensal", icon: FileText },
+/* ---------- Início - NOVA TELA CLARA + BOTÃO TEMA ---------- */
+function Home({ go, nome, igreja, staff, admin, tema, onToggleTema }: { go: (s: Screen) => void; nome: string; igreja: string; staff: boolean; admin: boolean; tema: "claro" | "escuro"; onToggleTema: () => void }) {
+  const claro = tema === "claro";
+  const main: { id: Screen; label: string; desc: string; icon: typeof Users }[] = [
+    { id: "escala", label: "Escala", desc: "Confira a escala da igreja", icon: CalendarDays },
+    { id: "membros", label: "Membros", desc: "Nossa igreja em comunhão", icon: Users },
+    { id: "eventos", label: "Eventos", desc: "Acompanhe os eventos", icon: PartyPopper },
+    { id: "avisos", label: "Avisos", desc: "Fique por dentro", icon: Megaphone },
+    { id: "atas", label: "Ata Mensal", desc: "Acesse as atas", icon: FileText },
+    { id: "oracao", label: "Pedidos de Oração", desc: "Envie seu pedido", icon: Heart },
   ];
-  const extra: { id: Screen; label: string; icon: typeof Users }[] = ([
+  const extra: { id: Screen; label: string; icon: typeof Users }[] = [
     { id: "aniv", label: "Aniversariantes", icon: Cake },
-    ...(staff ? [{ id: "visitantes" as Screen, label: "Visitantes", icon: Users }, { id: "oracao" as Screen, label: "Pedidos de Oração", icon: FileText }, { id: "galeria" as Screen, label: "Galeria", icon: PartyPopper }, { id: "duvidas" as Screen, label: "Dúvidas", icon: FileText }] : []),
+    { id: "visitantes", label: "Visitantes", icon: Users },
     { id: "dizimos", label: "Dízimos", icon: HandCoins },
     { id: "ofertas", label: "Ofertas", icon: Gift },
     ...(admin ? [{ id: "admin" as Screen, label: "Admin", icon: Shield }] : []),
-  ] as { id: Screen; label: string; icon: typeof Users }[]).filter((b) => admin || (b.id !== "dizimos" && b.id !== "ofertas"));
+  ];
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col items-center pt-4 text-center">
-        <img src={logo} alt={APP_NAME} width={256} height={256} className="h-24 w-24 rounded-3xl shadow-soft" />
-        <h1 className="mt-3 text-2xl font-bold text-primary">{igreja || APP_NAME}</h1>
-        <p className="text-sm text-muted-foreground">Bem-vindo(a), {nome || "irmão(ã)"}{admin ? " · ADM" : staff ? " · acesso de liderança" : ""}</p>
+    <div className={`space-y-4 ${claro ? "text-zinc-900" : ""}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <img src={logo} className="h-11 w-11 rounded-xl object-cover" />
+          <div><p className="text-[11px] uppercase tracking-widest text-zinc-500">Igreja</p><p className="font-bold leading-none">{igreja || APP_NAME}</p></div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={onToggleTema} aria-label="Alternar modo claro e escuro" className={`flex h-10 w-10 items-center justify-center rounded-full border ${claro ? "bg-white border-zinc-200" : "bg-zinc-800 border-zinc-700"}`}>
+            {claro ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5 text-amber-400" />}
+          </button>
+          <button className={`relative flex h-10 w-10 items-center justify-center rounded-full border ${claro ? "bg-white border-zinc-200" : "bg-zinc-800 border-zinc-700"}`}>
+            <Bell className="h-5 w-5" /><span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">1</span>
+          </button>
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500 font-bold text-white">{(nome || "F").slice(0, 2).toUpperCase()}</div>
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        {main.map((b, i) => (
-          <button key={b.id} onClick={() => go(b.id)}
-            className={`flex flex-col items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-card p-5 shadow-soft active:scale-95 ${i === main.length - 1 ? "col-span-2" : ""}`}>
-            <b.icon className="h-8 w-8 text-primary" /><span className="font-semibold">{b.label}</span>
+      <p className={`text-sm ${claro ? "text-zinc-600" : "text-muted-foreground"}`}>Bem-vindo(a), <b>{nome || "irmão(ã)"}</b> {admin ? <span className="text-amber-600">- ADM</span> : ""}</p>
+      <div className={`overflow-hidden rounded-3xl ${claro ? "bg-gradient-to-r from-amber-100 to-amber-50" : "bg-amber-900/30"}`}>
+        <div className="flex items-center gap-3 p-4">
+          <div className="flex-1">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-3 py-1 text-sm font-bold text-black"><BookOpen className="h-4 w-4" /> Versículo do Dia</span>
+            <p className="mt-3 text-[17px] font-semibold leading-snug">“Porque eu bem sei os planos que tenho para vós, diz o Senhor, planos de paz e não de mal,...”</p>
+            <p className="mt-1 font-bold text-amber-700">| Jeremias 29:11</p>
+          </div>
+          <img src={logo} className="hidden h-28 w-32 rounded-2xl object-cover sm:block" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {main.map((b) => (
+          <button key={b.id} onClick={() => go(b.id)} className={`flex items-center gap-3 rounded-2xl p-4 text-left shadow-sm active:scale-[0.98] ${claro ? "bg-white" : "bg-card border border-border"}`}>
+            <b.icon className="h-8 w-8 shrink-0 text-amber-500" />
+            <div className="flex-1"><p className="font-bold">{b.label}</p><p className="text-xs text-zinc-500">{b.desc}</p></div>
+            <ChevronRight className="h-5 w-5" />
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <p className="pt-1 font-bold"><span className="mr-2 text-amber-500">|</span>Acesso Rápido</p>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
         {extra.map((b) => (
-          <button key={b.id} onClick={() => go(b.id)} className="flex flex-col items-center gap-1 rounded-xl border border-border bg-secondary p-3 text-xs active:scale-95">
-            <b.icon className="h-5 w-5 text-primary" />{b.label}
+          <button key={b.id} onClick={() => go(b.id)} className={`flex flex-col items-center gap-1 rounded-2xl p-3 text-[12px] ${claro ? "bg-white" : "bg-secondary"}`}>
+            <b.icon className="h-6 w-6 text-amber-500" />{b.label}
           </button>
         ))}
       </div>
+      <button onClick={() => go("eventos")} className={`flex w-full items-center justify-between rounded-2xl p-4 text-left ${claro ? "bg-amber-100" : "bg-amber-900/30"}`}>
+        <div><p className="text-3xl font-bold italic text-amber-600">Culto</p><p className="font-bold">toda semana!</p></div>
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-400 text-black"><ChevronRight className="h-5 w-5" /></span>
+      </button>
     </div>
   );
 }
@@ -280,9 +309,7 @@ function MembrosScreen({ staff }: { staff: boolean }) {
               <p className="truncate text-xs text-muted-foreground"><span className="text-primary">{CARGO_LABEL[m.cargo] ?? m.cargo}</span>{m.ministerio ? ` · ${m.ministerio}` : ""}{!m.ativo ? " · inativo" : ""}</p>
             </div>
             {staff && <button aria-label="Editar" onClick={() => setEdit({ id: m.id, v: { ...membroVazio, ...m, nascimento: m.nascimento ?? "", data_membro: m.data_membro ?? "", batismo_aguas: m.batismo_aguas ?? "", batismo_espirito: m.batismo_espirito ?? "" } })} className="p-2 text-muted-foreground"><Pencil className="h-4 w-4" /></button>}
-            <button aria-label="Ver Carteirinha" onClick={() => setVer(m)} className="p-2 rounded-full border">
-  <Eye className="h-4 w-4" />
-</button><WaBtn phone={m.telefone} label={m.nome} />
+            <button aria-label="Ver Carteirinha" onClick={() => setVer(m)} className="p-2 rounded-full border"><Eye className="h-4 w-4" /></button><WaBtn phone={m.telefone} label={m.nome} />
           </Card></li>
         ))}
       </ul>
@@ -501,7 +528,6 @@ function AtasScreen({ staff, igreja }: { staff: boolean; igreja: string }) {
   const now = new Date();
   const novo = (): AtaForm => ({ igreja: igreja || APP_NAME, mes: now.getMonth() + 1, ano: now.getFullYear(), data_reuniao: localDateKey(now), horario: "19:00", local: "", presidente: "", secretario: "", pauta: "", presentes: "", decisoes: "", texto_completo: "" });
   const sorted = [...atas].sort((a, b) => b.ano - a.ano || b.mes - a.mes);
-
   const gerar = async () => {
     if (!edit) return;
     setGerando(true);
@@ -529,7 +555,6 @@ function AtasScreen({ staff, igreja }: { staff: boolean; igreja: string }) {
     } catch (e) { toast.error(errMsg(e)); }
     setGerando(false);
   };
-
   const nomeArq = (a: { mes: number; ano: number }) => `ata-${String(a.mes).padStart(2, "0")}-${a.ano}`;
   const enviar = async (a: { mes: number; ano: number; texto_completo: string }, canal: "whats" | "email") => {
     const titulo = `Ata de ${MESES[a.mes - 1]} de ${a.ano}`;
@@ -548,7 +573,6 @@ function AtasScreen({ staff, igreja }: { staff: boolean; igreja: string }) {
       <Btn type="button" variant="info" onClick={() => enviar(a, "email")}><Mail className="h-4 w-4" />Enviar por E-mail</Btn>
     </div>
   );
-
   const set = (k: keyof AtaForm, v: string | number) => edit && setEdit({ ...edit, [k]: v });
   return (
     <div className="space-y-4">
@@ -661,6 +685,8 @@ export function IgrejaApp() {
   const qc = useQueryClient();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [screen, setScreen] = useState<Screen>("home");
+  const [tema, setTema] = useState<"claro" | "escuro">(() => (localStorage.getItem("tema_igreja") as "claro" | "escuro") || "claro");
+  const onToggleTema = () => { const novo = tema === "claro" ? "escuro" : "claro"; setTema(novo); localStorage.setItem("tema_igreja", novo); };
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data } = supabase.auth.onAuthStateChange((ev, s) => {
@@ -686,17 +712,17 @@ export function IgrejaApp() {
   const sair = async () => { await qc.cancelQueries(); qc.clear(); await supabase.auth.signOut(); setScreen("home"); };
   const meta = session?.user.user_metadata ?? {};
   const semIgreja = !!session && !meLoading && !!me && !me.igrejaId;
-
   if (session === undefined) return <div className="min-h-screen bg-background" />;
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Toaster theme="dark" position="top-center" richColors />
+    <div className={`min-h-screen ${tema === "claro" ? "bg-[#F4F3EF] text-zinc-900" : "bg-background text-foreground"}`}>
+      <Toaster theme={tema === "claro" ? "light" : "dark"} position="top-center" richColors />
       {!session ? <Auth /> : (
         <div className="mx-auto max-w-7x1 px-4 pb-16 pt-[max(env(safe-area-inset-top),1rem)]">
           <div className="mb-4 flex items-center justify-between">
             {screen !== "home" && !semIgreja && staff
               ? <button onClick={() => setScreen("home")} className="flex items-center gap-1 text-sm text-primary"><ArrowLeft className="h-4 w-4" />Início</button>
               : <span className="flex items-center gap-2 truncate text-xs uppercase tracking-widest text-muted-foreground">{localStorage.getItem("logo_igreja_" + (me?.igreja ?? "").trim().toLowerCase()) ? <img src={localStorage.getItem("logo_igreja_" + (me?.igreja ?? "").trim().toLowerCase())!} className="h-8 w-8 rounded-full object-cover" /> : null}{me?.igreja || APP_NAME}</span>
+            }
             <button onClick={sair} className="flex items-center gap-1 text-sm text-muted-foreground"><LogOut className="h-4 w-4" />Sair</button>
           </div>
           {semIgreja ? (
@@ -705,7 +731,7 @@ export function IgrejaApp() {
           ) : !me ? null : !staff ? <MembroArea igreja={me.igreja} igrejaId={me.igrejaId ?? ""} /> : <>
           {screen === "galeria" && <Galeria staff igrejaId={me.igrejaId ?? ""} />}
           {screen === "duvidas" && <Duvidas staff />}
-          {screen === "home" && <Home go={setScreen} nome={me?.nome ?? ""} igreja={me.igreja} staff={staff} admin={admin} />}
+          {screen === "home" && <Home go={setScreen} nome={me?.nome ?? ""} igreja={me.igreja} staff={staff} admin={admin} tema={tema} onToggleTema={onToggleTema} />}
           {screen === "escala" && <EscalaScreen staff={staff} admin={admin} />}
           {screen === "membros" && <MembrosScreen staff={admin} />}
           {screen === "eventos" && <EventosScreen staff={staff} admin={admin} />}
