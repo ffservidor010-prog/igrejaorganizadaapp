@@ -129,8 +129,7 @@ const [mostrarSenha, setMostrarSenha] = useState(false);
             </>}
             <Field label="E-mail"><input required type="email" className={inputCls} value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
             <Field label="Senha"><input required type={mostrarSenha ? "text" : "password"} minLength={6} className={inputCls} value={f.senha} onChange={(e) => setF({ ...f, senha: e.target.value })} /></Field>
-            <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} className="text-sm text-primary">{mostrarSenha ? "Ocultar senha" : "Mostrar senha"}</button>`
-            </Field>
+            <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} className="text-sm text-primary">{mostrarSenha ? "Ocultar senha" : "Mostrar senha"}</button>
             <Btn disabled={busy} className="w-full">{mode === "in" ? "Entrar" : "Criar conta"}</Btn>
             <button type="button" onClick={() => setMode(mode === "in" ? "up" : "in")} className="w-full text-sm text-primary">
               {mode === "in" ? "Não tem conta? Criar conta" : "Já tenho conta. Entrar"}
