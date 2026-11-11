@@ -357,16 +357,39 @@ function MembrosScreen({ staff }: { staff: boolean }) {
         </Modal>
       )}
       {ver && (
-<Modal title="Carteirinha" onClose={() => setVer(null)}>
-<div className="space-y-3 text-center">
-<Avatar m={{ nome: ver.nome, foto: ver.foto }} />
-<p className="font-bold text-lg">{ver.nome}</p>
-<p className="text-sm text-muted-foreground">{ver.cargo || "Membro"}</p>
-<p className="text-sm">{ver.telefone || ""}</p>
-<p className="text-sm">{ver.email || ""}</p>
-</div>
-</Modal>
-)}
+        <Modal title="Carteirinha" onClose={() => setVer(null)}>
+          <div className="overflow-hidden rounded-3xl border-2 border-amber-400 bg-white shadow-xl">
+            <div className="bg-zinc-900 px-4 py-3 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <img src={logo} className="h-7 w-7 rounded-full object-cover" />
+                <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-amber-400">Carteirinha de Membro</p>
+              </div>
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-zinc-400">Identidade Oficial</p>
+            </div>
+            <div className="flex flex-col items-center px-4 pt-5 text-center">
+              <div className="rounded-full border-4 border-amber-400 p-1 bg-white">
+                <Avatar m={{ nome: ver.nome, foto: ver.foto }} />
+              </div>
+              <p className="mt-3 text-xl font-bold uppercase leading-tight text-zinc-900">{ver.nome}</p>
+              <span className="mt-1 rounded-full bg-amber-400 px-3 py-1 text-xs font-bold uppercase text-black">
+                {CARGO_LABEL[ver.cargo] ?? ver.cargo ?? "Membro"}
+              </span>
+              {ver.ministerio && <p className="mt-1 text-sm font-medium text-zinc-600">{ver.ministerio}</p>}
+              {!ver.ativo && <span className="mt-1 rounded-full bg-red-100 px-2 py-1 text-[11px] font-bold text-red-600">INATIVO</span>}
+            </div>
+            <div className="mx-4 mb-4 mt-4 space-y-2 rounded-2xl bg-zinc-50 p-3 text-left text-sm">
+              {ver.telefone && <p><b className="text-zinc-500">Telefone:</b> <span className="text-zinc-900">{ver.telefone}</span></p>}
+              {ver.email && <p><b className="text-zinc-500">E-mail:</b> <span className="break-all text-zinc-900">{ver.email}</span></p>}
+              {ver.cpf && <p><b className="text-zinc-500">CPF:</b> <span className="text-zinc-900">{ver.cpf}</span></p>}
+              {ver.nascimento && <p><b className="text-zinc-500">Nascimento:</b> <span className="text-zinc-900">{dataBR(ver.nascimento)}</span></p>}
+              {ver.data_membro && <p><b className="text-zinc-500">Membro desde:</b> <span className="text-zinc-900">{dataBR(ver.data_membro)}</span></p>}
+            </div>
+            <div className="bg-amber-400 px-4 py-2.5 text-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-black">Membro Oficial • Apresente esta carteirinha</p>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
