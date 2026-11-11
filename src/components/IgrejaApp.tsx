@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast, Toaster } from "sonner";
 import {
   ArrowLeft, CalendarDays, Users, PartyPopper, Megaphone, FileText, Cake, HandCoins, Gift, Shield, LogOut,
-  Plus, Trash2, Pencil, MessageCircle, Mail, Download, Check, ChevronLeft, ChevronRight, Search, Sparkles, Save,
+  Plus, Trash2, Pencil, Eye, MessageCircle, Mail, Download, Check, ChevronLeft, ChevronRight, Search, Sparkles, Save,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -254,6 +254,7 @@ function MembrosScreen({ staff }: { staff: boolean }) {
   const save = useSave("membros"); const del = useRemove("membros");
   const [q, setQ] = useState(""); const [filtro, setFiltro] = useState<"todos" | "ativos" | "inativos">("ativos");
   const [edit, setEdit] = useState<{ id?: string; v: typeof membroVazio } | null>(null);
+  const [ver, setVer] = useState<any>(null);
   const list = membros.filter((m) => (filtro === "todos" || (filtro === "ativos") === m.ativo) && `${m.nome} ${m.telefone} ${m.ministerio}`.toLowerCase().includes(q.toLowerCase()));
   return (
     <div className="space-y-4">
@@ -272,7 +273,9 @@ function MembrosScreen({ staff }: { staff: boolean }) {
               <p className="truncate text-xs text-muted-foreground"><span className="text-primary">{CARGO_LABEL[m.cargo] ?? m.cargo}</span>{m.ministerio ? ` · ${m.ministerio}` : ""}{!m.ativo ? " · inativo" : ""}</p>
             </div>
             {staff && <button aria-label="Editar" onClick={() => setEdit({ id: m.id, v: { ...membroVazio, ...m, nascimento: m.nascimento ?? "", data_membro: m.data_membro ?? "", batismo_aguas: m.batismo_aguas ?? "", batismo_espirito: m.batismo_espirito ?? "" } })} className="p-2 text-muted-foreground"><Pencil className="h-4 w-4" /></button>}
-            <WaBtn phone={m.telefone} label={m.nome} />
+            <button aria-label="Ver Carteirinha" onClick={() => setVer(m)} className="p-2 rounded-full border">
+  <Eye className="h-4 w-4" />
+</button><WaBtn phone={m.telefone} label={m.nome} />
           </Card></li>
         ))}
       </ul>
@@ -310,6 +313,17 @@ function MembrosScreen({ staff }: { staff: boolean }) {
           </form>
         </Modal>
       )}
+      {ver && (
+<Modal title="Carteirinha" onClose={() => setVer(null)}>
+<div className="space-y-3 text-center">
+<Avatar m={{ nome: ver.nome, foto: ver.foto }} />
+<p className="font-bold text-lg">{ver.nome}</p>
+<p className="text-sm text-muted-foreground">{ver.cargo || "Membro"}</p>
+<p className="text-sm">{ver.telefone || ""}</p>
+<p className="text-sm">{ver.email || ""}</p>
+</div>
+</Modal>
+)}
     </div>
   );
 }
