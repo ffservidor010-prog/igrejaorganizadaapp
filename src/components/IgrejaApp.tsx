@@ -88,6 +88,12 @@ function Auth() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
 const [mostrarSenha, setMostrarSenha] = useState(false);
+  const handleEsqueciSenha = async () => {
+  if (!f.email) return alert("Digite seu e-mail primeiro");
+  const { error } = await supabase.auth.resetPasswordForEmail(f.email, { redirectTo: window.location.origin });
+  if (error) alert(error.message);
+  else alert("Link de redefinição enviado para seu e-mail!");
+};
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true);
     try {
@@ -128,6 +134,7 @@ const [mostrarSenha, setMostrarSenha] = useState(false);
             <button type="button" onClick={() => setMode(mode === "in" ? "up" : "in")} className="w-full text-sm text-primary">
               {mode === "in" ? "Não tem conta? Criar conta" : "Já tenho conta. Entrar"}
             </button>
+            <button type="button" onClick={handleEsqueciSenha} className="w-full text-sm text-primary">Esqueci minha senha</button>
           </form>
         )}
       </Card>
