@@ -671,7 +671,7 @@ export function IgrejaApp() {
     <div className="min-h-screen bg-background text-foreground">
       <Toaster theme="dark" position="top-center" richColors />
       {!session ? <Auth /> : (
-        <div className="mx-auto max-w-lg px-4 pb-16 pt-[max(env(safe-area-inset-top),1rem)]">
+        <div className="mx-auto max-w-7x1 px-4 pb-16 pt-[max(env(safe-area-inset-top),1rem)]">
           <div className="mb-4 flex items-center justify-between">
             {screen !== "home" && !semIgreja && staff
               ? <button onClick={() => setScreen("home")} className="flex items-center gap-1 text-sm text-primary"><ArrowLeft className="h-4 w-4" />Início</button>
