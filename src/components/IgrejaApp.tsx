@@ -28,7 +28,7 @@ import { dataDoCulto, mensagemEscala, relatorioDizimos } from "@/lib/administrac
 import { MembroArea, Galeria, Duvidas } from "./membro-area";
 
 /* ---------- Login ---------- */
-function IgrejaEscolha({ value, onChange }: { value: { tipo: "nova" | "convite"; igreja: string; codigo: string }; onChange: (v: { tipo: "nova" | "convite"; igreja: string; codigo: string }) => void }) {
+function IgrejaEscolha({ value: { tipo: "nova" | "convite"; igreja: string; codigo: string; logo?: string }; onChange: (v: { tipo: "nova" | "convite"; igreja: string; codigo: string; logo?: string }) => void }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
@@ -40,15 +40,22 @@ function IgrejaEscolha({ value, onChange }: { value: { tipo: "nova" | "convite";
       {value.tipo === "nova"
         ? <Field label="Nome da igreja"><input required className={inputCls} value={value.igreja} onChange={(e) => onChange({ ...value, igreja: e.target.value })} /></Field>
         : <Field label="Código de convite"><input required className={`${inputCls} uppercase tracking-widest`} value={value.codigo} onChange={(e) => onChange({ ...value, codigo: e.target.value.toUpperCase() })} /></Field>}
+  {value.tipo === "nova" && (
+<Field label="LOGO DA IGREJA (opcional)">
+<input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = () => onChange({ ...value, logo: String(r.result) }); r.readAsDataURL(f); }} />
+</Field>
+)}
     </div>
   );
 }
 
-async function vincularIgreja(v: { tipo: "nova" | "convite"; igreja: string; codigo: string }) {
+async function vincularIgreja(v: { tipo: "nova" | "convite"; igreja: string; codigo: string; logo?: string }) {
   const { error } = v.tipo === "nova"
     ? await supabase.rpc("criar_igreja", { _nome: v.igreja })
     : await supabase.rpc("entrar_igreja", { _codigo: v.codigo });
   if (error) throw error;
+  if (v.tipo === "nova" && v.logo) { try { localStorage.setItem("logo_igreja_" + v.igreja.trim().toLowerCase(), v.logo); } catch {} }
+}
 }
 
 function Onboarding({ onDone, inicial }: { onDone: () => void; inicial: { tipo: "nova" | "convite"; igreja: string; codigo: string } }) {
