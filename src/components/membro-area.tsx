@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
-import { BadgeCheck, CalendarDays, Download, Image as ImageIcon, Send, Trash2, User, Plus, HelpCircle, Sun, Moon, BookOpen } from "lucide-react";
+import { BadgeCheck, CalendarDays, Download, Image as ImageIcon, Send, Trash2, User, Plus, HelpCircle, Sun, Moon, BookOpen, HeartHandshake } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { APP_NAME, CARGO_LABEL, TIPOS_CARTA, CARTA_LABEL, dataBR, preencherModeloCarta } from "@/lib/igreja";
@@ -97,7 +97,7 @@ function carteirinhaPdf(m: Membro, igreja: string, qr: string, logoUrl?: string 
   return doc.output("blob");
 }
 
-type Aba = "credencial" | "carteirinha" | "duvidas" | "dados" | "cultos" | "escala" | "galeria";
+type Aba = "credencial" | "carteirinha" | "duvidas" | "oracao" | "dados" | "cultos" | "escala" | "galeria";
 
 export function MembroArea({ igreja, igrejaId, tema = "claro", onToggleTema }: { igreja: string; igrejaId: string; tema?: "claro" | "escuro"; onToggleTema?: () => void }) {
   const qc = useQueryClient();
@@ -130,6 +130,7 @@ export function MembroArea({ igreja, igrejaId, tema = "claro", onToggleTema }: {
     { id: "galeria", label: "Galeria", icon: ImageIcon },
     { id: "carteirinha", label: "Carteirinha", icon: BadgeCheck },
     { id: "duvidas", label: "Dúvidas", icon: HelpCircle },
+    { id: "oracao", label: "Pedido de Oração", icon: HeartHandshake },
   ];
   return (
     <div className={`space-y-4 ${claro ? "text-zinc-900" : "text-zinc-100"}`}>
@@ -164,6 +165,7 @@ export function MembroArea({ igreja, igrejaId, tema = "claro", onToggleTema }: {
       {aba === "credencial" && <Credencial m={m} igreja={igreja} igrejaId={igrejaId} />}
       {aba === "carteirinha" && <Credencial carteirinha m={m} igreja={igreja} igrejaId={igrejaId} />}
       {aba === "duvidas" && <Duvidas staff={false} nome={m.nome} />}
+      {aba === "oracao" && <PedidosOracao staff={false} nome={m.nome} igrejaId={igrejaId} />}
       {aba === "dados" && <MeusDados m={m} igreja={igreja} />}
       {aba === "cultos" && <ProximosCultos />}
       {aba === "escala" && <MinhaEscala membroId={m.id} />}
@@ -382,6 +384,72 @@ export function Duvidas({ staff, nome = "" }: { staff: boolean; nome?: string })
                 <Btn variant="danger" aria-label="Apagar" onClick={() => confirm("Apagar dúvida?") && apagar.mutate(d.id)}><Trash2 className="h-4 w-4" /></Btn></div>
             </div>
           ) : d.resposta ? <p className="rounded-xl bg-secondary p-2 text-sm"><span className="font-semibold text-primary">Resposta: </span>{d.resposta}</p> : null}
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+type PedidoOracao = { id: string; nome: string; pedido: string; resposta: string | null; status: string | null; created_at: string; igreja_id?: string | null };
+
+export function PedidosOracao({ staff, nome = "", igrejaId = "" }: { staff: boolean; nome?: string; igrejaId?: string }) {
+  const qc = useQueryClient();
+  const [texto, setTexto] = useState("");
+  const [resp, setResp] = useState<Record<string, string>>({});
+  const { data = [] } = useQuery({
+    queryKey: ["pedidos-oracao", igrejaId],
+    queryFn: async () => {
+      let q = supabase.from("pedidos_oracao" as never).select("*").order("created_at", { ascending: false });
+      if (igrejaId) q = q.eq("igreja_id", igrejaId);
+      const r = await q;
+      if (r.error) throw r.error;
+      return (r.data ?? []) as unknown as PedidoOracao[];
+    },
+  });
+  const ok = () => qc.invalidateQueries({ queryKey: ["pedidos-oracao"] });
+  const enviar = useMutation({
+    mutationFn: async () => {
+      const r = await supabase.from("pedidos_oracao" as never).insert({ nome, pedido: texto.trim(), igreja_id: igrejaId || null } as never);
+      if (r.error) throw r.error;
+    },
+    onSuccess: () => { setTexto(""); ok(); toast.success("Pedido enviado para o pastor"); },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const responder = useMutation({
+    mutationFn: async (d: PedidoOracao) => {
+      const r = await supabase.from("pedidos_oracao" as never).update({ resposta: resp[d.id] ?? d.resposta, status: "respondido" } as never).eq("id", d.id);
+      if (r.error) throw r.error;
+    },
+    onSuccess: () => { ok(); toast.success("Resposta salva"); },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const apagar = useMutation({
+    mutationFn: async (id: string) => { const r = await supabase.from("pedidos_oracao" as never).delete().eq("id", id); if (r.error) throw r.error; },
+    onSuccess: ok, onError: (e) => toast.error(errMsg(e)),
+  });
+  return (
+    <div className="space-y-3">
+      <h2 className="text-xl font-bold">Pedidos de Oração {staff ? "dos membros" : ""}</h2>
+      {!staff && (
+        <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); if (texto.trim()) enviar.mutate(); }}>
+          <textarea required rows={4} className={inputCls} placeholder="Escreva seu pedido de oração... Só o pastor vai ver." value={texto} onChange={(e) => setTexto(e.target.value)} />
+          <Btn className="w-full" disabled={enviar.isPending}><HeartHandshake className="h-4 w-4" />Enviar pedido de oração</Btn>
+          <p className="text-center text-xs text-muted-foreground">Seu pedido vai direto para quem criou a igreja.</p>
+        </form>
+      )}
+      {!data.length && <Empty text="Nenhum pedido de oração ainda." />}
+      {data.map((d) => (
+        <Card key={d.id} className="space-y-2">
+          <div className="flex items-baseline justify-between gap-2"><span className="font-bold text-primary">{d.nome || "Membro"}</span>
+            <span className="text-xs">{d.status === "respondido" ? <span className="text-success">orado</span> : <span className="text-destructive">aguardando oração</span>} · {dataBR(d.created_at.slice(0, 10))}</span></div>
+          <p className="text-sm">{d.pedido}</p>
+          {staff ? (
+            <div className="space-y-2">
+              <textarea rows={2} className={inputCls} placeholder="Resposta / palavra para o membro" value={resp[d.id] ?? d.resposta ?? ""} onChange={(e) => setResp({ ...resp, [d.id]: e.target.value })} />
+              <div className="flex gap-2"><Btn className="flex-1" disabled={responder.isPending} onClick={() => responder.mutate(d)}>Marcar como orado</Btn>
+                <Btn variant="danger" aria-label="Apagar" onClick={() => confirm("Apagar pedido?") && apagar.mutate(d.id)}><Trash2 className="h-4 w-4" /></Btn></div>
+            </div>
+          ) : d.resposta ? <p className="rounded-xl bg-secondary p-2 text-sm"><span className="font-semibold text-primary">Resposta do pastor: </span>{d.resposta}</p> : null}
         </Card>
       ))}
     </div>
