@@ -797,10 +797,31 @@ function AdminScreen({ igreja }: { igreja: string }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["contas"] }); toast.success("Acesso atualizado"); },
     onError: (e) => toast.error(errMsg(e)),
   });
+  const [editNome, setEditNome] = useState(false);
+const [novoNome, setNovoNome] = useState(igreja);
+const salvarNome = useMutation({
+  mutationFn: async () => {
+    const { error } = await supabase.from("igrejas").update({ nome: novoNome }).eq("nome", igreja);
+    if (error) throw error;
+  },
+  onSuccess: () => { qc.invalidateQueries(); toast.success("Nome da igreja atualizado"); setEditNome(false); },
+  onError: (e) => toast.error(errMsg(e)),
+}); 
   const msgConvite = `Olá! Entre na ${igreja} pelo ${APP_NAME}: ${typeof window !== "undefined" ? window.location.origin : ""}\nAo criar sua conta, escolha "Entrar com convite" e use o código: ${convite}`;
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold">Admin · {igreja}</h2>
+     {!editNome ? (
+  <div className="flex items-center gap-2">
+    <h2 className="text-xl font-bold">Admin • {igreja}</h2>
+    <Btn variant="ghost" onClick={() => setEditNome(true)}>Editar</Btn>
+  </div>
+) : (
+  <div className="flex gap-2">
+    <input className="flex-1 rounded-xl border px-3 py-2" value={novoNome} onChange={(e) => setNovoNome(e.target.value)} />
+    <Btn onClick={() => salvarNome.mutate()} disabled={salvarNome.isPending}>Salvar</Btn>
+    <Btn variant="ghost" onClick={() => setEditNome(false)}>Cancelar</Btn>
+  </div>
+)}
       <Card className="space-y-3">
         <p className="text-sm font-semibold">Código de convite</p>
         <p className="text-center text-3xl font-bold tracking-[0.3em] text-primary">{convite || "…"}</p>
