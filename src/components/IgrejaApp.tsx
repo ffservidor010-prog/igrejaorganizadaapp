@@ -21,12 +21,12 @@ type Membro = Tables<"membros">;
 type Escala = Tables<"escalas">;
 type Evento = Tables<"eventos">;
 type Ata = Tables<"atas">;
-type Screen = "duvidas" | "galeria" | "visitantes" | "oracao" | "home" | "escala" | "membros" | "eventos" | "avisos" | "atas" | "aniv" | "dizimos" | "ofertas" | "admin";
+type Screen = "duvidas"  | "pedidos-oracao"| "galeria" | "visitantes" | "oracao" | "home" | "escala" | "membros" | "eventos" | "avisos" | "atas" | "aniv" | "dizimos" | "ofertas" | "admin";
 import { Btn, Field, Card, Modal, Empty, WaBtn, Avatar, MonthNav, inputCls, brl, errMsg } from "./igreja-ui";
 import { useRows, useSave, useRemove } from "@/lib/administracao-hooks";
 import { CultosManager, SetoresManager, VisitantesScreen, OracaoScreen } from "./administracao-screens";
 import { dataDoCulto, mensagemEscala, relatorioDizimos } from "@/lib/administracao";
-import { MembroArea, Galeria, Duvidas } from "./membro-area";
+import { MembroArea, Galeria, Duvidas, PedidosOracao } from "./membro-area";
 
 const VERSICULOS_PROFETICOS = [
   { t: "Eis que farei uma coisa nova, e agora sairá à luz.", r: "Isaías 43:19" },
