@@ -55,11 +55,10 @@ export function Avatar({ m }: { m: Pick<Membro, "nome" | "foto"> }) {
 export function MonthNav({ ano, mes, set }: { ano: number; mes: number; set: (a: number, m: number) => void }) {
   const move = (d: number) => { const dt = new Date(ano, mes - 1 + d, 1); set(dt.getFullYear(), dt.getMonth() + 1); };
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-border bg-card p-2">
-      <button onClick={() => move(-1)} className="p-2 text-primary" aria-label="Mês anterior"><ChevronLeft /></button>
-      <span className="font-semibold capitalize">{MESES[mes - 1]} {ano}</span>
-      <button onClick={() => move(1)} className="p-2 text-primary" aria-label="Próximo mês"><ChevronRight /></button>
+    <div className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900 p-2 text-white">
+      <button onClick={() => move(-1)} className="p-2 text-white" aria-label="Mês anterior"><ChevronLeft /></button>
+      <span className="font-semibold capitalize text-white">{MESES[mes - 1]} {ano}</span>
+      <button onClick={() => move(1)} className="p-2 text-white" aria-label="Próximo mês"><ChevronRight /></button>
     </div>
   );
 }
-
