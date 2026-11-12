@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
-import { BadgeCheck, CalendarDays, Download, Image as ImageIcon, Send, Trash2, User, Plus, HelpCircle } from "lucide-react";
+import { BadgeCheck, CalendarDays, Download, Image as ImageIcon, Send, Trash2, User, Plus, HelpCircle, Sun, Moon, BookOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { APP_NAME, CARGO_LABEL, TIPOS_CARTA, CARTA_LABEL, dataBR, preencherModeloCarta } from "@/lib/igreja";
@@ -15,6 +15,16 @@ import { Btn, Card, Empty, Field, Modal, Avatar, inputCls, errMsg } from "./igre
 
 type Membro = Tables<"membros">;
 type GaleriaItem = { id: string; titulo: string; tipo: "foto" | "video"; url: string; caminho: string | null; data: string };
+
+const VERSICULOS = [
+  { t: "Eis que farei uma coisa nova, e agora sairá à luz.", r: "Isaías 43:19" },
+  { t: "Porque eu bem sei os planos que tenho para vocês, planos de fazê-los prosperar.", r: "Jeremias 29:11" },
+  { t: "Não temas, porque eu sou contigo.", r: "Isaías 41:10" },
+  { t: "Os que esperam no Senhor renovarão as suas forças.", r: "Isaías 40:31" },
+  { t: "Clama a mim, e responder-te-ei, e anunciar-te-ei coisas grandes e firmes.", r: "Jeremias 33:3" },
+  { t: "Nenhuma arma forjada contra ti prosperará.", r: "Isaías 54:17" },
+  { t: "Com amor eterno te amei.", r: "Jeremias 31:3" },
+];
 
 async function reduzirFoto(file: File) {
   const img = await createImageBitmap(file);
@@ -40,9 +50,9 @@ function credencialPdf(m: Membro, igreja: string, qr: string, logoUrl?: string |
   const doc = new jsPDF({ unit: "mm", format: [86, 120] });
   doc.setFillColor(13, 15, 20); doc.rect(0, 0, 86, 120, "F");
   doc.setTextColor(212, 175, 55); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-  if (logoUrl) { try { doc.addImage(logoUrl, "JPEG", 36, 2, 14, 14); } catch { /* logo inválida */ } }
+  if (logoUrl) { try { doc.addImage(logoUrl, "JPEG", 36, 2, 14, 14); } catch {} }
   doc.text(igreja.toUpperCase(), 43, logoUrl ? 21 : 10, { align: "center", maxWidth: 78 });
-  if (m.foto) { try { doc.addImage(m.foto, "JPEG", 31, 15, 24, 24); } catch { /* foto inválida */ } }
+  if (m.foto) { try { doc.addImage(m.foto, "JPEG", 31, 15, 24, 24); } catch {} }
   doc.setTextColor(255, 255, 255);
   const w = 78; doc.setFontSize(12); let f = 12; while (f > 6 && doc.getTextWidth(m.nome) > w) { f -= 0.5; doc.setFontSize(f); }
   doc.text(m.nome, 43, 46, { align: "center" });
@@ -68,18 +78,16 @@ export function linhasVerso(m: Membro) {
 function carteirinhaPdf(m: Membro, igreja: string, qr: string, logoUrl?: string | null): Blob {
   const doc = new jsPDF({ unit: "mm", format: [54, 86], orientation: "landscape" });
   const fundo = () => { doc.setFillColor(13, 15, 20); doc.rect(0, 0, 86, 54, "F"); doc.setDrawColor(212, 175, 55); doc.setLineWidth(0.6); doc.rect(2, 2, 82, 50); };
-  // Frente
   fundo(); doc.setFont("helvetica", "bold"); doc.setTextColor(212, 175, 55); doc.setFontSize(9);
-  if (logoUrl) { try { doc.addImage(logoUrl, "JPEG", 4, 3.5, 9, 9); } catch { /* logo inválida */ } }
+  if (logoUrl) { try { doc.addImage(logoUrl, "JPEG", 4, 3.5, 9, 9); } catch {} }
   doc.text(igreja.toUpperCase(), 43, 8, { align: "center", maxWidth: 64 });
   doc.setFontSize(6); doc.setTextColor(200, 200, 200); doc.text("CARTEIRA DE MEMBRO", 43, 11.5, { align: "center" });
-  if (m.foto) { try { doc.addImage(m.foto, "JPEG", 5, 15, 24, 30); } catch { /* foto inválida */ } }
+  if (m.foto) { try { doc.addImage(m.foto, "JPEG", 5, 15, 24, 30); } catch {} }
   doc.setTextColor(150, 150, 150); doc.setFontSize(5.5); doc.text("NOME", 32, 18);
   doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); nomeCompleto(doc, m.nome, 32, 22, 50, 9);
   let y = 28;
   for (const [k, v] of linhasFrente(m)) { doc.setFontSize(5.5); doc.setTextColor(150, 150, 150); doc.text(k.toUpperCase(), 32, y); doc.setFontSize(8); doc.setTextColor(255, 255, 255); doc.text(v, 32, y + 3.5); y += 8; }
   doc.setFontSize(5); doc.setTextColor(180, 180, 180); doc.text(`Nº ${m.id.slice(0, 8).toUpperCase()}`, 82, 49, { align: "right" });
-  // Verso
   doc.addPage([54, 86], "landscape"); fundo();
   y = 8;
   for (const [k, v] of linhasVerso(m)) { doc.setFontSize(5); doc.setTextColor(150, 150, 150); doc.text(k.toUpperCase(), 5, y); doc.setFontSize(7); doc.setTextColor(255, 255, 255); doc.text(v, 5, y + 3, { maxWidth: 52 }); y += 6.5; }
@@ -91,9 +99,17 @@ function carteirinhaPdf(m: Membro, igreja: string, qr: string, logoUrl?: string 
 
 type Aba = "credencial" | "carteirinha" | "duvidas" | "dados" | "cultos" | "escala" | "galeria";
 
-export function MembroArea({ igreja, igrejaId }: { igreja: string; igrejaId: string }) {
+export function MembroArea({ igreja, igrejaId, tema = "claro", onToggleTema }: { igreja: string; igrejaId: string; tema?: "claro" | "escuro"; onToggleTema?: () => void }) {
   const qc = useQueryClient();
   const [aba, setAba] = useState<Aba>("credencial");
+  const claro = tema === "claro";
+  const [indiceVersiculo, setIndiceVersiculo] = useState(() => {
+    const agora = new Date();
+    const inicioAno = new Date(agora.getFullYear(), 0, 0);
+    const diaDoAno = Math.floor((agora.getTime() - inicioAno.getTime()) / 86400000);
+    return diaDoAno % VERSICULOS.length;
+  });
+  const versiculo = VERSICULOS[indiceVersiculo]!;
   const { data: m, error } = useQuery({
     queryKey: ["meu-membro"],
     queryFn: async () => {
@@ -116,11 +132,31 @@ export function MembroArea({ igreja, igrejaId }: { igreja: string; igrejaId: str
     { id: "duvidas", label: "Dúvidas", icon: HelpCircle },
   ];
   return (
-    <div className="space-y-4">
-      <div className="text-center"><h1 className="text-2xl font-bold text-primary">{igreja || APP_NAME}</h1><p className="text-sm text-muted-foreground">Olá, {m.nome}</p></div>
+    <div className={`space-y-4 ${claro ? "text-zinc-900" : "text-zinc-100"}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-left"><h1 className="text-2xl font-bold text-primary">{igreja || APP_NAME}</h1><p className={`text-sm ${claro ? "text-zinc-600" : "text-zinc-400"}`}>Olá, {m.nome}</p></div>
+        {onToggleTema && (
+          <button onClick={onToggleTema} aria-label="Alternar modo claro e escuro" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border ${claro ? "bg-white border-zinc-200" : "bg-zinc-800 border-zinc-700"}`}>
+            {claro ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5 text-amber-400" />}
+          </button>
+        )}
+      </div>
+
+      {/* VERSICULO DIARIO - AREA DE MEMBRO */}
+      <div className={`overflow-hidden rounded-3xl ${claro ? "bg-gradient-to-r from-amber-100 to-amber-50" : "bg-amber-900/30"}`}>
+        <div className="p-4">
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-3 py-1 text-sm font-bold text-black"><BookOpen className="h-4 w-4" /> Versículo do Dia</span>
+          <button onClick={() => setIndiceVersiculo((i) => (i + 1) % VERSICULOS.length)} className="text-left w-full">
+            <p className={`mt-3 text-[17px] font-semibold leading-snug ${claro ? "text-zinc-900" : "text-white"}`}>“{versiculo.t}”</p>
+            <p className="mt-1 font-bold text-amber-700">| {versiculo.r}</p>
+            <p className={`mt-1 text-[11px] ${claro ? "text-zinc-500" : "text-zinc-400"}`}>Toque para ver o próximo versículo</p>
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-4 gap-1">
         {abas.map((a) => (
-          <button key={a.id} onClick={() => setAba(a.id)} className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-[11px] ${aba === a.id ? "border-primary bg-primary/15 text-primary" : "border-border bg-secondary"}`}>
+          <button key={a.id} onClick={() => setAba(a.id)} className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-[11px] font-semibold ${aba === a.id ? "border-amber-500 bg-amber-400 text-black" : claro ? "border-zinc-200 bg-white text-zinc-900" : "border-zinc-700 bg-zinc-800 text-white"}`}>
             <a.icon className="h-5 w-5" />{a.label}
           </button>
         ))}
@@ -155,7 +191,7 @@ function Credencial({ m, igreja, igrejaId, carteirinha = false }: { carteirinha?
           <p className="text-center text-sm font-bold uppercase tracking-widest text-primary">{igreja}</p>
           <p className="mb-2 text-center text-[10px] uppercase text-muted-foreground">Carteira de membro</p>
           <div className="flex gap-3">
-            <div className="h-28 w-22 shrink-0 overflow-hidden rounded-md border-2 border-primary" style={{ width: "5.5rem" }}>{foto}</div>
+            <div className="h-28 shrink-0 overflow-hidden rounded-md border-2 border-primary" style={{ width: "5.5rem" }}>{foto}</div>
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-[10px] uppercase text-muted-foreground">Nome</p>
               <p className="truncate whitespace-nowrap text-sm font-bold">{m.nome}</p>
@@ -167,7 +203,7 @@ function Credencial({ m, igreja, igrejaId, carteirinha = false }: { carteirinha?
         <Card className="border-primary/50 p-3">
           <div className="flex gap-3">
             <div className="min-w-0 flex-1 space-y-1">{linhasVerso(m).map(([k, v]) => <div key={k}><p className="text-[10px] uppercase text-muted-foreground">{k}</p><p className="break-words text-sm font-semibold">{v}</p></div>)}</div>
-            {qr && <img src={qr} alt="QR Code de validação" className="h-24 w-24 shrink-0 rounded-md bg-foreground p-1" />}
+            {qr && <img src={qr} alt="QR Code de validação" className="h-24 w-24 shrink-0 rounded-md bg-white p-1" />}
           </div>
           <div className="mt-6 border-t border-primary pt-1 text-center text-[10px] text-muted-foreground">Assinatura do Pastor</div>
         </Card>
@@ -177,7 +213,7 @@ function Credencial({ m, igreja, igrejaId, carteirinha = false }: { carteirinha?
           <div className="mx-auto my-3 h-28 w-28 overflow-hidden rounded-full border-4 border-primary">{foto}</div>
           <h2 className="text-xl font-bold">{m.nome}</h2>
           <p className="text-sm text-primary">{CARGO_LABEL[m.cargo] ?? m.cargo}</p>
-          {qr && <img src={qr} alt="QR Code da credencial" className="mx-auto mt-4 h-40 w-40 rounded-xl bg-foreground p-2" />}
+          {qr && <img src={qr} alt="QR Code da credencial" className="mx-auto mt-4 h-40 w-40 rounded-xl bg-white p-2" />}
           <p className="mt-2 text-xs text-muted-foreground">Credencial de acesso rápido</p>
         </Card>
       )}
