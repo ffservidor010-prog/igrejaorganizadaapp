@@ -804,18 +804,10 @@ const salvarNome = useMutation({
     const novo = novoNome.trim();
     if (!novo) throw new Error("Digite o nome novo");
     const { data: { user } } = await supabase.auth.getUser();
-    alert("Seu ID: " + user?.id + " | Igreja antiga que a tela vê: [" + igreja + "]");
-
     const r1 = await supabase.from("igrejas").update({ nome: novo }).eq("nome", igreja).select();
-    alert("Igrejas alteradas: " + (r1.data ? r1.data.length : 0) + " | Erro: " + (r1.error ? r1.error.message : "nenhum"));
-
-    const r2 = await supabase.from("usuarios").update({ igreja: novo }).eq("id", user?.id).select();
-    alert("Usuarios alterados: " + (r2.data ? r2.data.length : 0) + " | Erro: " + (r2.error ? r2.error.message : "nenhum"));
-
-    const r3 = await supabase.from("profiles").update({ igreja: novo }).eq("id", user?.id).select();
-    alert("Profiles alterados: " + (r3.data ? r3.data.length : 0) + " | Erro: " + (r3.error ? r3.error.message : "nenhum"));
-
-    // Tenta também pelo nome antigo em todas as tabelas
+       const r2 = await supabase.from("usuarios").update({ igreja: novo }).eq("id", user?.id).select();
+       const r3 = await supabase.from("profiles").update({ igreja: novo }).eq("id", user?.id).select();
+        // Tenta também pelo nome antigo em todas as tabelas
     await supabase.from("usuarios").update({ igreja: novo }).eq("igreja", igreja);
     await supabase.from("membros").update({ igreja: novo }).eq("igreja", igreja);
   },
