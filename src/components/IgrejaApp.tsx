@@ -261,7 +261,7 @@ function Home({ go, nome, igreja, staff, admin, tema, onToggleTema }: { go: (s: 
     { id: "eventos", label: "Eventos", desc: "Acompanhe os eventos", icon: PartyPopper },
     { id: "avisos", label: "Avisos", desc: "Fique por dentro", icon: Megaphone },
     { id: "atas", label: "Ata Mensal", desc: "Acesse as atas", icon: FileText },
-    { id: "oracao", label: "Pedidos de Oração", desc: "Envie seu pedido", icon: Heart },
+    { id: "pedidos-oracao", label: "Pedidos de Oração", desc: "Envie seu pedido", icon: Heart },
   ];
   const extra: { id: Screen; label: string; icon: typeof Users }[] = [
     { id: "aniv", label: "Aniversariantes", icon: Cake },
