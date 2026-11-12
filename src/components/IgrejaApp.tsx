@@ -903,6 +903,7 @@ export function IgrejaApp() {
          ) : !me ? null : !staff ? <MembroArea igreja={me.igreja} igrejaId={me.igrejaId ?? ""} tema={tema} onToggleTema={onToggleTema} /> : <>
           {screen === "galeria" && <Galeria staff igrejaId={me.igrejaId ?? ""} />}
           {screen === "duvidas" && <Duvidas staff />}
+           {screen === "pedidos-oracao" && <PedidosOracao staff igrejaId={me.igrejaId ?? ""} />}
           {screen === "home" && <Home go={setScreen} nome={me?.nome ?? ""} igreja={me.igreja} staff={staff} admin={admin} tema={tema} onToggleTema={onToggleTema} />}
           {screen === "escala" && <EscalaScreen staff={staff} admin={admin} />}
           {screen === "membros" && <MembrosScreen staff={admin} />}
