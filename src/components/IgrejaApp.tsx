@@ -801,12 +801,17 @@ function AdminScreen({ igreja }: { igreja: string }) {
 const [novoNome, setNovoNome] = useState(igreja);
 const salvarNome = useMutation({
   mutationFn: async () => {
-    const { error } = await supabase.from("igrejas").update({ nome: novoNome }).eq("nome", igreja);
+    const novo = novoNome.trim();
+    if (!novo) throw new Error("Digite o nome novo");
+    const { error } = await supabase.from("igrejas").update({ nome: novo }).eq("nome", igreja);
     if (error) throw error;
+    await supabase.from("usuarios").update({ igreja: novo }).eq("igreja", igreja);
+    await supabase.from("profiles").update({ igreja: novo }).eq("igreja", igreja);
+    await supabase.from("membros").update({ igreja: novo }).eq("igreja", igreja);
   },
-  onSuccess: () => { qc.invalidateQueries(); toast.success("Nome da igreja atualizado"); setEditNome(false); },
+  onSuccess: () => { toast.success("Salvou de verdade!"); setEditNome(false); window.location.reload(); },
   onError: (e) => toast.error(errMsg(e)),
-}); 
+});
   const msgConvite = `Olá! Entre na ${igreja} pelo ${APP_NAME}: ${typeof window !== "undefined" ? window.location.origin : ""}\nAo criar sua conta, escolha "Entrar com convite" e use o código: ${convite}`;
   return (
     <div className="space-y-4">
