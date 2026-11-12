@@ -900,7 +900,7 @@ export function IgrejaApp() {
           {semIgreja ? (
             <Onboarding inicial={{ tipo: meta['igreja_tipo'] === "convite" ? "convite" : "nova", igreja: meta['igreja_nome'] ?? "", codigo: meta['igreja_codigo'] ?? "" }}
               onDone={() => { qc.clear(); refetchMe(); setScreen("home"); }} />
-          ) : !me ? null : !staff ? <MembroArea igreja={me.igreja} igrejaId={me.igrejaId ?? ""} /> : <>
+         ) : !me ? null : !staff ? <MembroArea igreja={me.igreja} igrejaId={me.igrejaId ?? ""} tema={tema} onToggleTema={onToggleTema} /> : <>
           {screen === "galeria" && <Galeria staff igrejaId={me.igrejaId ?? ""} />}
           {screen === "duvidas" && <Duvidas staff />}
           {screen === "home" && <Home go={setScreen} nome={me?.nome ?? ""} igreja={me.igreja} staff={staff} admin={admin} tema={tema} onToggleTema={onToggleTema} />}
