@@ -28,6 +28,109 @@ import { CultosManager, SetoresManager, VisitantesScreen, OracaoScreen } from ".
 import { dataDoCulto, mensagemEscala, relatorioDizimos } from "@/lib/administracao";
 import { MembroArea, Galeria, Duvidas } from "./membro-area";
 
+const VERSICULOS_PROFETICOS = [
+  { t: "Eis que farei uma coisa nova, e agora sairá à luz.", r: "Isaías 43:19" },
+  { t: "Porque eu bem sei os planos que tenho para vocês, planos de fazê-los prosperar.", r: "Jeremias 29:11" },
+  { t: "Derramarei o meu Espírito sobre toda a carne.", r: "Joel 2:28" },
+  { t: "Levanta-te, resplandece, porque vem a tua luz.", r: "Isaías 60:1" },
+  { t: "Porei em vocês o meu Espírito, e vocês viverão.", r: "Ezequiel 37:14" },
+  { t: "O Senhor não fará coisa alguma, sem revelar o seu segredo aos seus servos, os profetas.", r: "Amós 3:7" },
+  { t: "Não temas, porque eu sou contigo.", r: "Isaías 41:10" },
+  { t: "Antes que te formasse no ventre te conheci, e te santifiquei.", r: "Jeremias 1:5" },
+  { t: "Nenhuma arma forjada contra ti prosperará.", r: "Isaías 54:17" },
+  { t: "A visão é ainda para o tempo determinado, mas se apressa para o fim.", r: "Habacuque 2:3" },
+  { t: "O Espírito do Senhor Deus está sobre mim, porque o Senhor me ungiu.", r: "Isaías 61:1" },
+  { t: "Clama a mim, e responder-te-ei, e anunciar-te-ei coisas grandes e firmes.", r: "Jeremias 33:3" },
+  { t: "Dar-vos-ei um coração novo, e porei dentro de vós um espírito novo.", r: "Ezequiel 36:26" },
+  { t: "Restituir-vos-ei os anos que foram consumidos pelo gafanhoto.", r: "Joel 2:25" },
+  { t: "Os que esperam no Senhor renovarão as suas forças.", r: "Isaías 40:31" },
+  { t: "Não por força nem por violência, mas sim pelo meu Espírito.", r: "Zacarias 4:6" },
+  { t: "Provai-me nisto, diz o Senhor, se eu não vos abrir as janelas do céu.", r: "Malaquias 3:10" },
+  { t: "A minha palavra não voltará para mim vazia.", r: "Isaías 55:11" },
+  { t: "Porei a minha lei no seu interior, e a escreverei no seu coração.", r: "Jeremias 31:33" },
+  { t: "Ele revela o profundo e o escondido.", r: "Daniel 2:22" },
+  { t: "Eis-me aqui, envia-me a mim.", r: "Isaías 6:8" },
+  { t: "E o Espírito entrou neles, e viveram, e se puseram em pé.", r: "Ezequiel 37:10" },
+  { t: "Farei voltar os cativos de Judá.", r: "Joel 3:1" },
+  { t: "Derramarei água sobre o sedento, e rios sobre a terra seca.", r: "Isaías 44:3" },
+  { t: "Te restaurarei a saúde, e te curarei as tuas chagas, diz o Senhor.", r: "Jeremias 30:17" },
+  { t: "O Senhor teu Deus está no meio de ti, poderoso para te salvar.", r: "Sofonias 3:17" },
+  { t: "E o Senhor te guiará continuamente.", r: "Isaías 58:11" },
+  { t: "A glória desta última casa será maior do que a da primeira.", r: "Ageu 2:9" },
+  { t: "E repousará sobre ele o Espírito do Senhor.", r: "Isaías 11:2" },
+  { t: "Acaso haveria alguma coisa demasiado difícil para mim?", r: "Jeremias 32:27" },
+  { t: "Farei descer a chuva a seu tempo; chuvas de bênção serão.", r: "Ezequiel 34:26" },
+  { t: "De ti me sairá o que será Senhor em Israel.", r: "Miquéias 5:2" },
+  { t: "Porque um menino nos nasceu, um filho se nos deu.", r: "Isaías 9:6" },
+  { t: "Levantarei a Davi um Renovo justo.", r: "Jeremias 23:5" },
+  { t: "Vos restaurarei em dobro.", r: "Zacarias 9:12" },
+  { t: "Esforçai-vos, não temais; eis que o vosso Deus virá.", r: "Isaías 35:4" },
+  { t: "E lhes darei um só coração, e um espírito novo porei dentro deles.", r: "Ezequiel 11:19" },
+  { t: "Todo aquele que invocar o nome do Senhor será salvo.", r: "Joel 2:32" },
+  { t: "Quão formosos são sobre os montes os pés do que anuncia as boas novas.", r: "Isaías 52:7" },
+  { t: "Cura-me, Senhor, e sararei; salva-me, e serei salvo.", r: "Jeremias 17:14" },
+  { t: "Não temas, Daniel, porque desde o primeiro dia as tuas palavras foram ouvidas.", r: "Daniel 10:12" },
+  { t: "Ainda que esta se esquecesse, eu todavia não me esquecerei de ti.", r: "Isaías 49:15" },
+  { t: "Derramarei o meu Espírito sobre a casa de Israel.", r: "Ezequiel 39:29" },
+  { t: "Eis que vêm dias em que o que lavra seguirá logo ao que sega.", r: "Amós 9:13" },
+  { t: "Antes que clamem eu responderei; estando eles ainda falando, eu os ouvirei.", r: "Isaías 65:24" },
+  { t: "Dar-lhes-ei coração para que me conheçam.", r: "Jeremias 24:7" },
+  { t: "Haverá semente de paz; a vide dará o seu fruto.", r: "Zacarias 8:12" },
+  { t: "Quando passares pelas águas estarei contigo.", r: "Isaías 43:2" },
+  { t: "Multiplicarei o fruto das árvores.", r: "Ezequiel 36:30" },
+  { t: "Alegrai-vos, filhos de Sião, e regozijai-vos no Senhor.", r: "Joel 2:23" },
+  { t: "O Espírito do Senhor arvorará contra ele a sua bandeira.", r: "Isaías 59:19" },
+  { t: "Há galardão para o teu trabalho.", r: "Jeremias 31:16" },
+  { t: "A terra se encherá do conhecimento da glória do Senhor.", r: "Habacuque 2:14" },
+  { t: "Tu conservarás em paz aquele cuja mente está firme em ti.", r: "Isaías 26:3" },
+  { t: "Toda a criatura vivente que passar por onde entrarem estes rios viverá.", r: "Ezequiel 47:9" },
+  { t: "Pedi ao Senhor chuva no tempo da chuva serôdia.", r: "Zacarias 10:1" },
+  { t: "As nações verão a tua justiça, e todos os reis a tua glória.", r: "Isaías 62:2" },
+  { t: "Buscar-me-eis, e me achareis, quando me buscardes de todo o coração.", r: "Jeremias 29:13" },
+  { t: "Os que forem sábios resplandecerão como o fulgor do firmamento.", r: "Daniel 12:3" },
+  { t: "Estenderei sobre ela a paz como um rio.", r: "Isaías 66:12" },
+  { t: "Lembrar-me-ei da minha aliança que contigo fiz.", r: "Ezequiel 16:60" },
+  { t: "Sabereis que eu estou no meio de Israel.", r: "Joel 2:27" },
+  { t: "As primeiras coisas já se cumpriram, e as novas eu vos anuncio.", r: "Isaías 42:9" },
+  { t: "Eu te porei como forte muro de bronze.", r: "Jeremias 15:20" },
+  { t: "Naquele tempo vos farei voltar, e naquele tempo vos recolherei.", r: "Sofonias 3:20" },
+  { t: "Amplia o lugar da tua tenda.", r: "Isaías 54:2" },
+  { t: "O meu tabernáculo estará com eles, e eu serei o seu Deus.", r: "Ezequiel 37:27" },
+  { t: "Eu serei para ela um muro de fogo em redor.", r: "Zacarias 2:5" },
+  { t: "O menor virá a ser mil, e o mínimo uma nação forte.", r: "Isaías 60:22" },
+  { t: "Eu trarei a ela saúde e cura, e os sararei.", r: "Jeremias 33:6" },
+  { t: "Trarei do cativeiro meu povo Israel.", r: "Amós 9:14" },
+  { t: "Até que se derrame sobre nós o Espírito lá do alto.", r: "Isaías 32:15" },
+  { t: "Convertei-vos, pois, e vivei.", r: "Ezequiel 18:32" },
+  { t: "Não temas, ó terra: regozija-te, porque o Senhor fez grandes coisas.", r: "Joel 2:21" },
+  { t: "Este é o caminho, andai nele.", r: "Isaías 30:21" },
+  { t: "Eu velo sobre a minha palavra para a cumprir.", r: "Jeremias 1:12" },
+  { t: "Quem despreza o dia das coisas pequenas?", r: "Zacarias 4:10" },
+  { t: "A glória do Senhor se manifestará, e toda a carne juntamente a verá.", r: "Isaías 40:5" },
+  { t: "Saberão que houve no meio deles um profeta.", r: "Ezequiel 33:33" },
+  { t: "Para vós, os que temeis o meu nome, nascerá o sol da justiça.", r: "Malaquias 4:2" },
+  { t: "Te darei os tesouros escondidos, e as riquezas encobertas.", r: "Isaías 45:3" },
+  { t: "Tu fizeste os céus e a terra com o teu grande poder.", r: "Jeremias 32:17" },
+  { t: "Foi-lhe dado o domínio, e a honra, e o reino.", r: "Daniel 7:14" },
+  { t: "Voltarão os resgatados do Senhor, e virão a Sião com júbilo.", r: "Isaías 51:11" },
+  { t: "No dia em que eu vos purificar de todas as vossas iniquidades.", r: "Ezequiel 36:33" },
+  { t: "O Senhor rugirá de Sião, e de Jerusalém fará ouvir a sua voz.", r: "Joel 3:16" },
+  { t: "Edificarão os lugares antigamente assolados.", r: "Isaías 61:4" },
+  { t: "Satisfiz a alma cansada, e toda a alma entristecida saciei.", r: "Jeremias 31:25" },
+  { t: "Derramarei espírito de graça e de súplicas.", r: "Zacarias 12:10" },
+  { t: "Em toda a angústia deles ele foi angustiado.", r: "Isaías 63:9" },
+  { t: "Farei entrar em vós o espírito, e vivereis.", r: "Ezequiel 37:5" },
+  { t: "O Senhor Deus é a minha força.", r: "Habacuque 3:19" },
+  { t: "Como os novos céus, e a nova terra, que hei de fazer, estarão diante de mim.", r: "Isaías 66:22" },
+  { t: "Com amor eterno te amei.", r: "Jeremias 31:3" },
+  { t: "Corra o juízo como as águas, e a justiça como o ribeiro impetuoso.", r: "Amós 5:24" },
+  { t: "Eu confirmo a palavra do meu servo.", r: "Isaías 44:26" },
+  { t: "Saberão que eu, o Senhor seu Deus, estou com elas.", r: "Ezequiel 34:30" },
+  { t: "Sobre os servos e sobre as servas derramarei o meu Espírito.", r: "Joel 2:29" },
+  { t: "Os trarei ao meu santo monte, e os alegrarei na minha casa de oração.", r: "Isaías 56:7" },
+  { t: "Certamente cedo venho. Amém. Ora vem, Senhor Jesus.", r: "Apocalipse 22:20" },
+];
+
 /* ---------- Login ---------- */
 function IgrejaEscolha({ value, onChange }: { value: { tipo: "nova" | "convite"; igreja: string; codigo: string; logo?: string }; onChange: (v: { tipo: "nova" | "convite"; igreja: string; codigo: string; logo?: string }) => void }) {
   return (
@@ -145,6 +248,13 @@ const [mostrarSenha, setMostrarSenha] = useState(false);
 /* ---------- Início - NOVA TELA CLARA + BOTÃO TEMA ---------- */
 function Home({ go, nome, igreja, staff, admin, tema, onToggleTema }: { go: (s: Screen) => void; nome: string; igreja: string; staff: boolean; admin: boolean; tema: "claro" | "escuro"; onToggleTema: () => void }) {
   const claro = tema === "claro";
+  const [indiceVersiculo, setIndiceVersiculo] = useState(() => {
+    const agora = new Date();
+    const inicioAno = new Date(agora.getFullYear(), 0, 0);
+    const diaDoAno = Math.floor((agora.getTime() - inicioAno.getTime()) / 86400000);
+    return diaDoAno % VERSICULOS_PROFETICOS.length;
+  });
+  const versiculo = VERSICULOS_PROFETICOS[indiceVersiculo]!;
   const main: { id: Screen; label: string; desc: string; icon: typeof Users }[] = [
     { id: "escala", label: "Escala", desc: "Confira a escala da igreja", icon: CalendarDays },
     { id: "membros", label: "Membros", desc: "Nossa igreja em comunhão", icon: Users },
@@ -182,8 +292,11 @@ function Home({ go, nome, igreja, staff, admin, tema, onToggleTema }: { go: (s: 
         <div className="flex items-center gap-3 p-4">
           <div className="flex-1">
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-3 py-1 text-sm font-bold text-black"><BookOpen className="h-4 w-4" /> Versículo do Dia</span>
-            <p className="mt-3 text-[17px] font-semibold leading-snug">“Porque eu bem sei os planos que tenho para vós, diz o Senhor, planos de paz e não de mal,...”</p>
-            <p className="mt-1 font-bold text-amber-700">| Jeremias 29:11</p>
+            <button onClick={() => setIndiceVersiculo((i) => (i + 1) % VERSICULOS_PROFETICOS.length)} className="text-left w-full">
+              <p className="mt-3 text-[17px] font-semibold leading-snug">“{versiculo.t}”</p>
+              <p className="mt-1 font-bold text-amber-700">| {versiculo.r}</p>
+              <p className="mt-1 text-[11px] text-zinc-500">Toque para ver o próximo versículo • Dia {indiceVersiculo + 1} de 100</p>
+            </button>
           </div>
           <img src={logo} className="hidden h-28 w-32 rounded-2xl object-cover sm:block" />
         </div>
@@ -212,7 +325,6 @@ function Home({ go, nome, igreja, staff, admin, tema, onToggleTema }: { go: (s: 
     </div>
   );
 }
-
 /* ---------- Escala ---------- */
 function EscalaScreen({ staff, admin }: { staff: boolean; admin: boolean }) {
   const now = new Date();
