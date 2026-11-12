@@ -211,7 +211,7 @@ function Credencial({ m, igreja, igrejaId, carteirinha = false }: { carteirinha?
         <Card className="border-primary/40 bg-gradient-to-b from-card to-secondary text-center">
           <p className="text-sm font-bold uppercase tracking-widest text-primary">{igreja}</p>
           <div className="mx-auto my-3 h-28 w-28 overflow-hidden rounded-full border-4 border-primary">{foto}</div>
-          <h2 className="text-xl font-bold">{m.nome}</h2>
+          <h2 className="text-xl font-bold text-white">{m.nome}</h2>
           <p className="text-sm text-primary">{CARGO_LABEL[m.cargo] ?? m.cargo}</p>
           {qr && <img src={qr} alt="QR Code da credencial" className="mx-auto mt-4 h-40 w-40 rounded-xl bg-white p-2" />}
           <p className="mt-2 text-xs text-muted-foreground">Credencial de acesso rápido</p>
